@@ -1,4 +1,4 @@
-# data-combine
+# data-combine ![logo](datacombine/datacombine/static/pictures/data_combine_logo_smaller.png)
 
 The data management solution for the Youth and Young Adult Network of the
 National Farmworker Ministry in Orlando; which is the best, most lit, most
