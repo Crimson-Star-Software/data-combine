@@ -37,7 +37,6 @@ class DataCombine():
                 f"Attempt to harvest encountered {r.status_code}: "
                 f"{r.reason}: {r.content}"
             )
-            embed()
             return None
         rjson = r.json()
         self.contacts.extend(rjson['results'])
