@@ -49,6 +49,7 @@ sudo -u postgres psql postgres << EOF
     ALTER ROLE $username SET default_transaction_isolation TO 'read committed';
     ALTER ROLE $username SET timezone to 'UTC';
     GRANT ALL PRIVILEGES ON DATABASE $dbname TO $username;
+    ALTER USER $username CREATEDB;
     \q 
 EOF
 

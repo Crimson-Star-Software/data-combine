@@ -25,7 +25,9 @@ class DataCombine():
 
     def _harvest_contact_page(self, params, headers, api_url):
         url = f"{BASE_URI}{api_url}"
-        params = {'api_key': self.api_key} if api_url.__contains__('next') else params
+        params = {
+            'api_key': self.api_key
+        } if api_url.__contains__('next') else params
         limit = params.get('limit')
         if limit:
             self._limit = limit
@@ -50,13 +52,6 @@ class DataCombine():
 
     def harvest_contacts(self, status='ALL', limit='500',
                          api_uri='/v2/contacts'):
-        """
-
-        :param status:
-        :param limit:
-        :param api_uri:
-        :return:
-        """
         params = {
             'status': status,
             'limit': limit,
@@ -71,6 +66,19 @@ class DataCombine():
     def read_from_highrise_contact_stash(self, jfname="yaya.json"):
         with open(jfname, 'r') as f:
             self.highrise_contacts_json = json.loads(f.read())
+
+    def read_constantcontact_contacts_from_json(self, jfname="yaya_cc.json",
+                                                override_contacts=True):
+        if self.contacts:
+            if override_contacts:
+                self.logger.debug("Overriding contacts...")
+            else:
+                self.logger.info(f"'{len(self.contacts)}' already found, "
+                                 f"not overriding.")
+                return
+
+        with open(jfname, 'r') as jf:
+            self.contacts = json.loads(jf.read())
 
 
 if __name__ == '__main__':

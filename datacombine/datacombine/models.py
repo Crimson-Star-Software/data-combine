@@ -3,8 +3,34 @@ from django.core.exceptions import FieldError
 import re
 
 
-class PhoneField(models.Field):
-    def __init__(self, phone_num):
+UNCONFIRMED = "UN"
+ACTIVE = "AC"
+OPTOUT = "OP"
+REMOVED = "RE"
+NON_SUBSCRIBER = "NO"
+STATUS_CHOICES = (
+    (UNCONFIRMED, "Unconfirmed"),
+    (ACTIVE, "Active"),
+    (OPTOUT, "Optout"),
+    (REMOVED, "Removed"),
+    (NON_SUBSCRIBER, "Non Subscriber")
+)
+
+
+class Phone(models.Model):
+    area_code = models.CharField(max_length=3, null=True)
+    number = models.CharField(max_length=7)
+    extension = models.CharField(max_length=7, null=True)
+
+    def __str__(self):
+        return "{0}{1}-{2}{3}".format(
+            "(" + self.area_code + ")-" if self.area_code else "",
+            self.number[:3],
+            self.number[3:],
+            " x "+self.extension if self.extension else ""
+        )
+
+    def create_from_str(self, phone_num):
         nums = re.findall("([0-9]+)", phone_num)
         if len(nums) == 0:
             self.area_code = self.number = self.extension = None
@@ -16,8 +42,7 @@ class PhoneField(models.Field):
                     nums[0] + nums[1]
                 )
             else:
-                self.area_code = nums[0]
-                self.number = nums[1]
+                self.number = nums[0] + nums[1]
         elif len(nums) == 3:
             if len(nums[0]) != 3 or len(nums[1]) != 3 or len(nums[2]) != 4:
                 self.area_code, self.number, self.extension = self._parsenums(
@@ -54,6 +79,101 @@ class PhoneField(models.Field):
             else:
                 return (nums[:3], nums[3:10], nums[10:])
 
-class Contact(models.model):
-    cell_phone = PhoneField()
-    home_phone = PhoneField()
+
+class Address(models.Model):
+    BUSINESS = "BU"
+    PERSONAL = "PE"
+    ADDRESS_TYPE_CHOICES = (
+        (BUSINESS, "Business"),
+        (PERSONAL, "Personal")
+    )
+    address_type = models.CharField(max_length=2, choices=ADDRESS_TYPE_CHOICES)
+    city = models.CharField(max_length=32)
+    country_code = models.CharField(max_length=2)
+    cc_id = models.CharField(max_length=36)
+    # TODO: Do we need three lines?
+    line1 = models.CharField(max_length=100)
+    line2 = models.CharField(max_length=100)
+    line3 = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=10)
+    state = models.CharField(max_length=20)
+    state_code = models.CharField(max_length=2)
+    sub_postal_code = models.CharField(max_length=20)
+
+    def __str__(self):
+        return "{0} {1}, {2}, {3}".format(
+            ", ".join(self.line1, self.line2, self.line3),
+            self.city,
+            self.state,
+            self.country_code
+        )
+
+
+class EmailAddress(models.Model):
+    ACTION_BY_OWNER = "AO"
+    ACTION_BY_VISITOR = "AV"
+
+    OPT_IN_STATUS_CHOICES = (
+        (ACTION_BY_OWNER, "Action by Owner"),
+        (ACTION_BY_VISITOR, "Action by Visitor")
+    )
+    cc_id = models.CharField(max_length=36)
+    status = models.CharField(max_length=2, choices=STATUS_CHOICES)
+    opt_in_date = models.DateTimeField(null=True)
+    opt_out_date = models.DateTimeField(null=True)
+    email_address = models.EmailField()
+    opt_in_source = models.CharField(max_length=2, choices=OPT_IN_STATUS_CHOICES)
+
+    def __str__(self):
+        return self.email_address
+
+
+class ConstantContactList(models.Model):
+    cc_id = models.IntegerField()
+    status = models.CharField(max_length=2, choices=STATUS_CHOICES)
+    name = models.CharField(max_length=48)
+    created_date = models.DateTimeField()
+    modified_date = models.DateTimeField()
+
+    def __str__(self):
+        return self.name
+
+
+class Note(models.Model):
+    created_date = models.DateTimeField()
+    cc_id = models.CharField(max_length=36)
+    modified_date = models.DateTimeField()
+    note = models.TextField()
+
+    def __str__(self):
+        return "{0}: {1}".format(self.cc_id, self.note[:25])
+
+
+class Contact(models.Model):
+    cell_phone = models.ManyToManyField(Phone, related_name='+')
+    home_phone = models.ManyToManyField(Phone, related_name='+')
+    work_phone = models.ManyToManyField(Phone, related_name='+')
+    confirmed = models.BooleanField()
+    addresses = models.ForeignKey(Address)
+    company_name = models.CharField(max_length=100)
+    created_date = models.DateTimeField()
+    email_addresses = models.ForeignKey(EmailAddress)
+    fax = models.ManyToManyField(Phone, related_name='+')
+    first_name = models.CharField(max_length=50)
+    middle_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    cc_id = models.IntegerField()
+    cc_lists = models.ForeignKey(ConstantContactList)
+    cc_modified_date = models.DateTimeField()
+    notes = models.ForeignKey(Note)
+    prefix_name = models.CharField(max_length=10)
+    job_title = models.CharField(max_length=50)
+    source = models.CharField(max_length=50)
+    status = models.CharField(max_length=2, choices=STATUS_CHOICES)
+
+    def __str__(self):
+        return "{0}{1}{2}".format(
+            self.first_name,
+            " " if not self.middle_name else " {} ".format(self.middle_name),
+            self.last_name
+        )
