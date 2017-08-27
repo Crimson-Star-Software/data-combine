@@ -127,7 +127,7 @@ ENV/
 yaya*.json
 
 # Ignore SECRETS!
-secret_settings.py
+datacombine/datacombine/secret_settings.py
 
 # Ignore local dbs
 datacombine/db.sqlite3

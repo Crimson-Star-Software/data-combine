@@ -8,12 +8,37 @@ ACTIVE = "AC"
 OPTOUT = "OP"
 REMOVED = "RE"
 NON_SUBSCRIBER = "NO"
+HIDDEN = 'HI'
 STATUS_CHOICES = (
     (UNCONFIRMED, "Unconfirmed"),
     (ACTIVE, "Active"),
     (OPTOUT, "Optout"),
     (REMOVED, "Removed"),
     (NON_SUBSCRIBER, "Non Subscriber")
+)
+CONFIRMED = "CO"
+NO_CONFIRMATION_REQUIRED="NC"
+CONFIRM_STATUS_CHOICES = (
+    (CONFIRMED, "Confirmed"),
+    (NO_CONFIRMATION_REQUIRED, "No Confirmation Required")
+)
+ACTION_BY_OWNER = "AO"
+ACTION_BY_VISITOR = "AV"
+
+OPT_IN_STATUS_CHOICES = (
+    (ACTION_BY_OWNER, "Action by Owner"),
+    (ACTION_BY_VISITOR, "Action by Visitor")
+)
+
+BUSINESS = "BU"
+PERSONAL = "PE"
+ADDRESS_TYPE_CHOICES = (
+    (BUSINESS, "Business"),
+    (PERSONAL, "Personal")
+)
+LIST_STATUS_CHOICES = (
+    (ACTIVE, 'Active'),
+    (HIDDEN, 'Hidden')
 )
 
 
@@ -28,6 +53,19 @@ class Phone(models.Model):
             self.number[:3],
             self.number[3:],
             " x "+self.extension if self.extension else ""
+        )
+
+    def __eq__(self, other):
+        return self.extension == other.extension and\
+               self.number == other.number and\
+               self.area_code == other.area_code
+
+    @classmethod
+    def is_phone_in_db(cls, phobj):
+        return cls.objects.filter(
+            area_code=phobj.area_code,
+            number=phobj.number,
+            extension=phobj.extension
         )
 
     def create_from_str(self, phone_num):
@@ -81,24 +119,18 @@ class Phone(models.Model):
 
 
 class Address(models.Model):
-    BUSINESS = "BU"
-    PERSONAL = "PE"
-    ADDRESS_TYPE_CHOICES = (
-        (BUSINESS, "Business"),
-        (PERSONAL, "Personal")
-    )
     address_type = models.CharField(max_length=2, choices=ADDRESS_TYPE_CHOICES)
-    city = models.CharField(max_length=32)
-    country_code = models.CharField(max_length=2)
+    city = models.CharField(max_length=32, null=True)
+    country_code = models.CharField(max_length=2, null=True)
     cc_id = models.CharField(max_length=36)
     # TODO: Do we need three lines?
-    line1 = models.CharField(max_length=100)
-    line2 = models.CharField(max_length=100)
-    line3 = models.CharField(max_length=100)
-    postal_code = models.CharField(max_length=10)
-    state = models.CharField(max_length=20)
-    state_code = models.CharField(max_length=2)
-    sub_postal_code = models.CharField(max_length=20)
+    line1 = models.CharField(max_length=100, null=True)
+    line2 = models.CharField(max_length=100, null=True)
+    line3 = models.CharField(max_length=100, null=True)
+    postal_code = models.CharField(max_length=10, null=True)
+    state = models.CharField(max_length=20, null=True)
+    state_code = models.CharField(max_length=2, null=True)
+    sub_postal_code = models.CharField(max_length=20, null=True)
 
     def __str__(self):
         return "{0} {1}, {2}, {3}".format(
@@ -110,19 +142,15 @@ class Address(models.Model):
 
 
 class EmailAddress(models.Model):
-    ACTION_BY_OWNER = "AO"
-    ACTION_BY_VISITOR = "AV"
-
-    OPT_IN_STATUS_CHOICES = (
-        (ACTION_BY_OWNER, "Action by Owner"),
-        (ACTION_BY_VISITOR, "Action by Visitor")
-    )
+    confirm_status = models.CharField(max_length=3,
+                                      choices=CONFIRM_STATUS_CHOICES)
     cc_id = models.CharField(max_length=36)
     status = models.CharField(max_length=2, choices=STATUS_CHOICES)
     opt_in_date = models.DateTimeField(null=True)
     opt_out_date = models.DateTimeField(null=True)
     email_address = models.EmailField()
-    opt_in_source = models.CharField(max_length=2, choices=OPT_IN_STATUS_CHOICES)
+    opt_in_source = models.CharField(max_length=2,
+                                     choices=OPT_IN_STATUS_CHOICES, null=True)
 
     def __str__(self):
         return self.email_address
@@ -130,7 +158,7 @@ class EmailAddress(models.Model):
 
 class ConstantContactList(models.Model):
     cc_id = models.IntegerField()
-    status = models.CharField(max_length=2, choices=STATUS_CHOICES)
+    status = models.CharField(max_length=2, choices=LIST_STATUS_CHOICES)
     name = models.CharField(max_length=48)
     created_date = models.DateTimeField()
     modified_date = models.DateTimeField()
@@ -139,36 +167,32 @@ class ConstantContactList(models.Model):
         return self.name
 
 
-class Note(models.Model):
-    created_date = models.DateTimeField()
-    cc_id = models.CharField(max_length=36)
-    modified_date = models.DateTimeField()
-    note = models.TextField()
-
-    def __str__(self):
-        return "{0}: {1}".format(self.cc_id, self.note[:25])
+class UserStatusOnCCList(models.Model):
+    cclist = models.ForeignKey('ConstantContactList')
+    user = models.ForeignKey('Contact')
+    status = models.CharField(max_length=2, choices=LIST_STATUS_CHOICES)
 
 
 class Contact(models.Model):
     cell_phone = models.ManyToManyField(Phone, related_name='+')
     home_phone = models.ManyToManyField(Phone, related_name='+')
     work_phone = models.ManyToManyField(Phone, related_name='+')
-    confirmed = models.BooleanField()
-    addresses = models.ForeignKey(Address)
-    company_name = models.CharField(max_length=100)
+    confirmed = models.NullBooleanField(null=True)
+    addresses = models.ManyToManyField(Address)
+    company_name = models.CharField(max_length=100, null=True)
     created_date = models.DateTimeField()
-    email_addresses = models.ForeignKey(EmailAddress)
+    email_addresses = models.ManyToManyField(EmailAddress)
     fax = models.ManyToManyField(Phone, related_name='+')
-    first_name = models.CharField(max_length=50)
-    middle_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
+    first_name = models.CharField(max_length=50, null=True)
+    middle_name = models.CharField(max_length=50, null=True)
+    last_name = models.CharField(max_length=50, null=True)
     cc_id = models.IntegerField()
-    cc_lists = models.ForeignKey(ConstantContactList)
+    cc_lists = models.ManyToManyField(ConstantContactList,
+                                      through=UserStatusOnCCList)
     cc_modified_date = models.DateTimeField()
-    notes = models.ForeignKey(Note)
-    prefix_name = models.CharField(max_length=10)
-    job_title = models.CharField(max_length=50)
-    source = models.CharField(max_length=50)
+    prefix_name = models.CharField(max_length=10, null=True)
+    job_title = models.CharField(max_length=50, null=True)
+    source = models.CharField(max_length=50, null=True)
     status = models.CharField(max_length=2, choices=STATUS_CHOICES)
 
     def __str__(self):
@@ -177,3 +201,20 @@ class Contact(models.Model):
             " " if not self.middle_name else " {} ".format(self.middle_name),
             self.last_name
         )
+
+    @staticmethod
+    def convert_status_str_to_code(statstr):
+        for code, stat in STATUS_CHOICES:
+            if statstr.upper()[:2] == code:
+                return code
+
+
+class Note(models.Model):
+    created_date = models.DateTimeField()
+    cc_id = models.CharField(max_length=36)
+    modified_date = models.DateTimeField()
+    note = models.TextField()
+    about = models.ForeignKey(Contact, null=True)
+
+    def __str__(self):
+        return "{0}: {1}".format(self.cc_id, self.note[:25])
