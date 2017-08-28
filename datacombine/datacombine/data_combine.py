@@ -253,6 +253,7 @@ class DataCombine():
             newContact.status
         )
         newContact.save()
+        return newContact
 
     def combine_contacts_into_db(self):
         if not hasattr(self, 'contacts'):
@@ -266,26 +267,25 @@ class DataCombine():
             self.combine_cclist_json_into_db(cclist)
         for c_i, contact in enumerate(self.contacts):
             try:
-                cf = DataCombine.get_init_values_for_model(Contact)
-                newContact = Contact(**{
-                    x:contact[x if not x.startswith('cc_') else x[3:]] for x in cf
-                })
-                newContact.status = Contact.convert_status_str_to_code(
-                    newContact.status
-                )
-                newContact.save()
+                newContact = self._initial_contact_setup_from_json(contact)
                 non_phone_or_cclist_m2m = [
                     (Address, "addresses"),
                     (EmailAddress, "email_addresses"),
                 ]
                 for xcclist in contact.get('lists'):
                     listobj = ConstantContactList.objects.first()
-                    liststat = "HI" if xcclist.get('status').startswith('H') else "AC"
+                    liststat = "HI" if xcclist.get('status').startswith('H')\
+                        else "AC"
                     ustat_obj = UserStatusOnCCList(
                         cclist=listobj, user=newContact, status=liststat
                     )
                     ustat_objects.append(ustat_obj)
-                phone_fields = ['home_phone', 'work_phone', 'cell_phone', 'fax']
+                phone_fields = [
+                    'home_phone',
+                    'work_phone',
+                    'cell_phone',
+                    'fax'
+                ]
                 for phfld in phone_fields:
                     try:
                         phone_num = contact.get(phfld)

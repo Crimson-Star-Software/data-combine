@@ -45,6 +45,22 @@ class TestDataCombine(TestCase):
             name='YAYA North Carolina',
             status='HI'
         )
+
+        self.jop_de_ruyterzoon = dict(
+            confirmed=False,
+            company_name="Crimson Star Software Collective",
+            first_name="Jop",
+            middle_name="Peter",
+            last_name="De Ruyterzoon",
+            id='1983',
+            modified_date="2015-03-16T17:41:31.000Z",
+            created_date="2015-03-16T17:41:31.000Z",
+            prefix_name="Dr",
+            job_title="Commissar of Data",
+            status="ACTIVE",
+            source="Site Owner"
+        )
+
         self.yaya_orl_list = ConstantContactList(**self.yaya_orl_json)
         self.yaya_orl_list.save()
 
@@ -193,6 +209,10 @@ class TestDataCombine(TestCase):
             "note"
         }
         self.assertEqual(init_values.difference(expected_values), set())
+
+    def test__initial_contact_setup_from_json(self):
+        jop = self.dc._initial_contact_setup_from_json(self.jop_de_ruyterzoon)
+        self.assertTrue(Contact.objects.filter(first_name="Jop", cc_id=1983))
 
     def tearDown(self):
         if os.path.isfile(self.log_loc):
