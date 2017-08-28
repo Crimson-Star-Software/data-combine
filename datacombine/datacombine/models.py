@@ -122,7 +122,7 @@ class Address(models.Model):
     address_type = models.CharField(max_length=2, choices=ADDRESS_TYPE_CHOICES)
     city = models.CharField(max_length=32, null=True)
     country_code = models.CharField(max_length=2, null=True)
-    cc_id = models.CharField(max_length=36)
+    cc_id = models.CharField(max_length=36, unique=True)
     # TODO: Do we need three lines?
     line1 = models.CharField(max_length=100, null=True)
     line2 = models.CharField(max_length=100, null=True)
@@ -144,7 +144,7 @@ class Address(models.Model):
 class EmailAddress(models.Model):
     confirm_status = models.CharField(max_length=3,
                                       choices=CONFIRM_STATUS_CHOICES)
-    cc_id = models.CharField(max_length=36)
+    cc_id = models.CharField(max_length=36, unique=True)
     status = models.CharField(max_length=2, choices=STATUS_CHOICES)
     opt_in_date = models.DateTimeField(null=True)
     opt_out_date = models.DateTimeField(null=True)
@@ -157,7 +157,7 @@ class EmailAddress(models.Model):
 
 
 class ConstantContactList(models.Model):
-    cc_id = models.IntegerField()
+    cc_id = models.IntegerField(unique=True)
     status = models.CharField(max_length=2, choices=LIST_STATUS_CHOICES)
     name = models.CharField(max_length=48)
     created_date = models.DateTimeField()
@@ -186,7 +186,7 @@ class Contact(models.Model):
     first_name = models.CharField(max_length=50, null=True)
     middle_name = models.CharField(max_length=50, null=True)
     last_name = models.CharField(max_length=50, null=True)
-    cc_id = models.IntegerField()
+    cc_id = models.IntegerField(unique=True)
     cc_lists = models.ManyToManyField(ConstantContactList,
                                       through=UserStatusOnCCList)
     cc_modified_date = models.DateTimeField()
@@ -211,7 +211,7 @@ class Contact(models.Model):
 
 class Note(models.Model):
     created_date = models.DateTimeField()
-    cc_id = models.CharField(max_length=36)
+    cc_id = models.CharField(max_length=36, unique=True)
     modified_date = models.DateTimeField()
     note = models.TextField()
     about = models.ForeignKey(Contact, null=True)
