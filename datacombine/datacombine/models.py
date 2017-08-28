@@ -166,6 +166,8 @@ class ConstantContactList(models.Model):
     def __str__(self):
         return self.name
 
+    def __eq__(self, other):
+        return int(self.cc_id) == int(other.cc_id) and self.name == other.name
 
 class UserStatusOnCCList(models.Model):
     cclist = models.ForeignKey('ConstantContactList')

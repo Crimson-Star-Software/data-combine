@@ -15,7 +15,6 @@ from .models import (
     Address,
     UserStatusOnCCList
 )
-from .utils import updt
 
 from .settings import BASE_DIR
 from .secret_settings import API_KEY, AUTH_KEY
@@ -176,8 +175,8 @@ class DataCombine():
 
     @classmethod
     def get_init_values_for_model(_, cls):
-        return [f.name for f in cls._meta.get_fields() if not f.null\
-                and not f.many_to_many and not f.one_to_one and f.name != 'id']
+        return [f.name for f in cls._meta.get_fields() if not f.is_relation
+                and f.name != 'id']
 
     @staticmethod
     def convert_choice_to_field(choice):
@@ -210,37 +209,50 @@ class DataCombine():
                     kwargs[fld.name] = None
         return cls(**kwargs)
 
+    @transaction.atomic
     def combine_cclist_json_into_db(self, cclist_json):
-        sid = transaction.savepoint()
-        try:
-            md = cclist_json.get('modified_date')
-            cd = cclist_json.get('created_date')
-            self._check_for_iso_8601_format(md)
-            self._check_for_iso_8601_format(cd)
-            ccid = cclist_json.get('id')
-            if ConstantContactList.objects.filter(cc_id=ccid):
-                l = ConstantContactList.objects.filter(cc_id=ccid).first()
+        md = cclist_json.get('modified_date')
+        cd = cclist_json.get('created_date')
+        if not self._check_for_iso_8601_format(md):
+            raise TypeError("Modified date is not in ISO-8601 format")
+        if not self._check_for_iso_8601_format(cd):
+            raise TypeError("Created date is not in ISO-8601 format")
+        ccid = cclist_json.get('id')
+        id_in_db = ConstantContactList.objects.filter(cc_id=ccid)
+
+        ccl = ConstantContactList(
+            cc_id=ccid,
+            status="AC" if cclist_json.get('status').startswith('A')\
+                        else "HI",
+            name=cclist_json.get('name'),
+            created_date=cd,
+            modified_date=md
+        )
+        if id_in_db:
+            l = id_in_db.first()
+            if ccl == l:
                 self.logger.debug(
                     f"List named '{l.name}' already found in db skipping..."
                 )
                 return
-            ccl = ConstantContactList(
-                cc_id=ccid,
-                status="AC" if cclist_json.get('status').startswith('A')\
-                            else "HI",
-                name=cclist_json.get('name'),
-                created_date=cd,
-                modified_date=md
-            )
-            ccl.save()
-            transaction.savepoint_commit(sid)
-        except IntegrityError:
-            self.logger.exception(
-                f"Exception encountered on {cclist_json.get('name')}. "
-                f"Rolling back..."
-            )
-            transaction.rollback(sid)
+            else:
+                raise IntegrityError(
+                    f"Lists with same ID do not match: {ccl.name} and {l.name}"
+                    f", {ccl.cc_id} and {l.cc_id}."
+                )
+        ccl.save()
         return None
+
+    @transaction.atomic
+    def _initial_contact_setup_from_json(self, contact):
+        cf = DataCombine.get_init_values_for_model(Contact)
+        newContact = Contact(**{
+            x: contact[x if not x.startswith('cc_') else x[3:]] for x in cf
+        })
+        newContact.status = Contact.convert_status_str_to_code(
+            newContact.status
+        )
+        newContact.save()
 
     def combine_contacts_into_db(self):
         if not hasattr(self, 'contacts'):
