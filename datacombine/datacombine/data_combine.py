@@ -18,6 +18,7 @@ from .models import (
 
 from .settings import BASE_DIR
 from .secret_settings import API_KEY, AUTH_KEY
+from .utils import updt
 
 BASE_URI = 'https://api.constantcontact.com'
 HTTP_FAIL_THRESHOLD = 400
@@ -255,6 +256,56 @@ class DataCombine():
         newContact.save()
         return newContact
 
+    @transaction.atomic
+    def combine_phone_number_into_db(self, phone_num, newContact, phfld):
+        try:
+            if not phone_num:
+                return
+            ph = Phone()
+            ph.create_from_str(phone_num)
+            ph_in_db = Phone.is_phone_in_db(ph)
+            phobj = getattr(newContact, phfld)
+            if ph_in_db:
+                self.logger.debug(
+                    f"Phone number '{ph}' is already in database"
+                )
+                phobj.add(ph_in_db.first())
+            else:
+                ph.save()
+                phobj.add(ph)
+        except FieldError:
+            self.logger.exception(f"Field error on {contact} for {phfld}")
+            return
+
+    @transaction.atomic
+    def _combine_m2m_field_into_db(self, cls_obj, m2mattrs, newContact, m2m):
+        m2mobj = DataCombine._setup_model_object(
+            cls_obj, m2mattrs
+        )
+        if m2mobj:
+            m2mobj.save()
+            ncontact_m2mfield = getattr(newContact, m2m)
+            ncontact_m2mfield.add(m2mobj)
+        else:
+            self.logger.debug(
+                f"{m2m.capitalize()} {m2mobj} already in database"
+                f"...skipping"
+            )
+        return newContact
+
+    @transaction.atomic
+    def _combine_notes_into_db(self, notes, newContact):
+        for note in notes:
+            newNote = DataCombine._setup_model_object(Note, note)
+            if newNote:
+                newNote.contact = newContact
+                newNote.save()
+
+    @transaction.atomic
+    def _save_ustat_objects(self, ustat_objects):
+        for ustat_obj in ustat_objects:
+            ustat_obj.save()
+
     def combine_contacts_into_db(self):
         if not hasattr(self, 'contacts'):
             raise AttributeError("No contacts found")
@@ -287,49 +338,18 @@ class DataCombine():
                     'fax'
                 ]
                 for phfld in phone_fields:
-                    try:
-                        phone_num = contact.get(phfld)
-                        if not phone_num:
-                            continue
-                        ph = Phone()
-                        ph.create_from_str(phone_num)
-                        ph_in_db = Phone.is_phone_in_db(ph)
-                        phobj = getattr(newContact, phfld)
-                        if ph_in_db:
-                            self.logger.debug(
-                                f"Phone number '{ph}' is already in database"
-                            )
-                            phobj.add(ph_in_db.first())
-                        else:
-                            ph.save()
-                            phobj.add(ph)
-                    except FieldError:
-                        continue
+                    self.combine_phone_number_into_db(
+                        contact.get(phfld), newContact, phfld
+                    )
                 for cls_obj, m2m in non_phone_or_cclist_m2m:
                     for m2mattrs in contact.get(m2m):
-                        m2mobj = DataCombine._setup_model_object(
-                            cls_obj, m2mattrs
+                        newContact = self._combine_m2m_field_into_db(
+                            cls_obj, m2mattrs, newContact, m2m
                         )
-                        if m2mobj:
-                            m2mobj.save()
-                            ncontact_m2mfield = getattr(newContact, m2m)
-                            try:
-                                ncontact_m2mfield.add(m2mobj)
-                            except:
-                                from IPython import embed
-                                embed()
-                        else:
-                            self.logger.debug(
-                                f"{m2m.capitalize()} {m2mobj} already in database"
-                                f"...skipping"
-                            )
-                for note in contact.get('notes'):
-                    note_obj = DataCombine._setup_model_object(
-                        Note, note
-                    )
-                    note_obj.save()
-                for ustat_obj in ustat_objects:
-                    ustat_obj.save()
+                self._combine_notes_into_db(contact.get('notes'), newContact)
+
+                self._save_ustat_objects(ustat_objects)
+
                 newContact.save()
 
                 # Update progress bar

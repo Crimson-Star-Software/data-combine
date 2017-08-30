@@ -175,6 +175,17 @@ class UserStatusOnCCList(models.Model):
     status = models.CharField(max_length=2, choices=LIST_STATUS_CHOICES)
 
 
+class Note(models.Model):
+    created_date = models.DateTimeField()
+    cc_id = models.CharField(max_length=36, unique=True)
+    modified_date = models.DateTimeField()
+    note = models.TextField()
+    contact = models.ForeignKey(to='Contact', related_name="notes", null=True)
+
+    def __str__(self):
+        return "{0}: {1}".format(self.cc_id, self.note[:25])
+
+
 class Contact(models.Model):
     cell_phone = models.ManyToManyField(Phone, related_name='+')
     home_phone = models.ManyToManyField(Phone, related_name='+')
@@ -209,14 +220,3 @@ class Contact(models.Model):
         for code, stat in STATUS_CHOICES:
             if statstr.upper()[:2] == code:
                 return code
-
-
-class Note(models.Model):
-    created_date = models.DateTimeField()
-    cc_id = models.CharField(max_length=36, unique=True)
-    modified_date = models.DateTimeField()
-    note = models.TextField()
-    about = models.ForeignKey(Contact, null=True)
-
-    def __str__(self):
-        return "{0}: {1}".format(self.cc_id, self.note[:25])

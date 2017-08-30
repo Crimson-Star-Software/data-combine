@@ -61,6 +61,21 @@ class TestDataCombine(TestCase):
             source="Site Owner"
         )
 
+        self.nathanial_conolly = dict(
+            confirmed=False,
+            company_name="Crimson Star Software Collective",
+            first_name="Nathanial",
+            middle_name="James",
+            last_name="Conolly",
+            id='1985',
+            modified_date="2016-04-16T17:41:31.000Z",
+            created_date="2016-04-16T17:41:31.000Z",
+            prefix_name="Mr",
+            job_title="Commissar of Cyber Security",
+            status="ACTIVE",
+            source="Site Owner"
+        )
+
         self.yaya_orl_list = ConstantContactList(**self.yaya_orl_json)
         self.yaya_orl_list.save()
 
@@ -214,8 +229,133 @@ class TestDataCombine(TestCase):
         jop = self.dc._initial_contact_setup_from_json(self.jop_de_ruyterzoon)
         self.assertTrue(Contact.objects.filter(first_name="Jop", cc_id=1983))
 
+    def test_combine_phone_number_into_db(self):
+        nate = self.dc._initial_contact_setup_from_json(self.nathanial_conolly)
+        self.dc.combine_phone_number_into_db(
+            "(904)-712-1983", nate, "work_phone"
+        )
+        nate_work_num = Phone.objects.filter(area_code="904", number="7121983")
+        self.assertEqual(nate_work_num.first(), nate.work_phone.first())
+
+        # Delete Nate
+        nate.delete()
+
+    def test_combine_phone_number_into_db_multiple(self):
+        nate = self.dc._initial_contact_setup_from_json(self.nathanial_conolly)
+        nates_home_num = ["(386)-101-2983x42", "(904)-111-3983"]
+        for num in nates_home_num:
+            self.dc.combine_phone_number_into_db(num, nate, "home_phone")
+        hp1 = Phone.objects.filter(
+            area_code="386", number="1012983", extension="42"
+        ).first()
+        hp2 = Phone.objects.filter(area_code="904", number="1113983").first()
+
+        self.assertIn(hp1, nate.home_phone.all()) and\
+            self.assertIn(hp2, nate.home_phone.all())
+
+        # Delete Nate
+        nate.delete()
+
+    def test__combine_m2m_field_into_db_addresses(self):
+        nate = self.dc._initial_contact_setup_from_json(self.nathanial_conolly)
+        aid_1 = '83d1f0e0-611c-11e3-d3ad-782bcb740129'
+        aid_2 = '99d17ce0-aaac-11e3-dead-cafecb740129'
+        nate_addresses = [{
+            'address_type': 'PERSONAL',
+            'city': 'Denver',
+            'country_code': 'us',
+            'id': aid_1,
+            'line1': '1917 Petrograd Dr.',
+            'line2': '',
+            'line3': '',
+            'postal_code': '5643',
+            'state': 'Denver',
+            'state_code': 'CO',
+            'sub_postal_code': ''
+        },{
+            'address_type': 'BUSINESS',
+            'city': 'Denver',
+            'country_code': 'us',
+            'id': aid_2,
+            'line1': '2017 Retrograde Rd.',
+            'line2': '',
+            'line3': '',
+            'postal_code': '5622',
+            'state': 'Denver',
+            'state_code': 'CO',
+            'sub_postal_code': ''
+        }]
+        for nate_address in nate_addresses:
+            self.dc._combine_m2m_field_into_db(
+                Address, nate_address, nate, "addresses"
+            )
+        nate_aids = [ad.cc_id for ad in nate.addresses.all()]
+        self.assertIn(aid_1, nate_aids)
+        self.assertIn(aid_2, nate_aids)
+
+        # Delete Nate
+        nate.delete()
+
+    def test__combine_m2m_field_into_db_email_addresses(self):
+        nate = self.dc._initial_contact_setup_from_json(self.nathanial_conolly)
+        eid_1 = 'deadbeef-99d9-11e3-83e7-782aba740721'
+        eid_2 = 'f13eff2f1-99d9-11e3-83e7-782bab73079'
+        email_addresses = [{
+            'confirm_status': 'NO_CONFIRMATION_REQUIRED',
+            'email_address': 'nconolly@ira.org',
+            'id': eid_1,
+            'opt_in_date': '2011-06-24T19:32:49.000Z',
+            'opt_in_source': 'ACTION_BY_OWNER',
+            'status': 'ACTIVE'
+        },{
+            'confirm_status': 'CONFIRMED',
+            'email_address': 'nconolly@ucf.edu',
+            'id': eid_2,
+            'opt_in_date': '2011-06-24T19:32:49.000Z',
+            'opt_in_source': 'ACTION_BY_VISITOR',
+            'status': 'ACTIVE'
+        }]
+
+        for email in email_addresses:
+            self.dc._combine_m2m_field_into_db(
+                EmailAddress, email, nate, "email_addresses"
+            )
+
+        nate_eids = [em.cc_id for em in nate.email_addresses.all()]
+        self.assertIn(eid_1, nate_eids)
+        self.assertIn(eid_2, nate_eids)
+
+        # Delete Nate
+        nate.delete()
+
+    def test__combine_notes_into_db(self):
+        nate = self.dc._initial_contact_setup_from_json(self.nathanial_conolly)
+        nid_1 = '6f12eae0-6807-11e7-af14-d4ae529a826e'
+        nid_2 = '6f12eae0-6807-11e7-dead-d4ae529a826e'
+        notes = [{
+            'created_date': '2017-07-13T20:11:19.000Z',
+            'id': nid_1,
+            'modified_date': '2017-07-13T20:11:19.000Z',
+            'note': 'BLAH BLAH'
+        },{
+            'created_date': '2017-07-19T20:11:19.000Z',
+            'id': nid_2,
+            'modified_date': '2017-07-19T20:11:19.000Z',
+            'note': 'Good point!'
+        }]
+
+        self.dc._combine_notes_into_db(notes, nate)
+
+        nates_notes = [nt.cc_id for nt in nate.notes.all()]
+        self.assertIn(nid_1, nates_notes)
+        self.assertIn(nid_2, nates_notes)
+
+        # Delete Nate
+        nate.delete()
+
     def tearDown(self):
         if os.path.isfile(self.log_loc):
             os.remove(self.log_loc)
 
         ConstantContactList.objects.all().delete()
+        Contact.objects.all().delete()
