@@ -41,6 +41,7 @@ class DataCombine():
         self.contacts = []
         self.cclists = []
         self.bad_phone_nums = dict()
+        self.bad_m2m = dict()
 
     def _setup_logger(self, lvl, logger, logfile="dcombine.log",
                       max_bytes=1000000, backup_count=5):
@@ -419,12 +420,16 @@ class DataCombine():
                         )
                     except FieldError as fe:
                         self.bad_phone_nums.setdefault(newContact.cc_id, [])\
-                            .append({"phfld":contact.get(phfld)})
+                            .append({phfld:contact.get(phfld)})
                 for cls_obj, m2m in non_phone_or_cclist_m2m:
                     for m2mattrs in contact.get(m2m):
-                        newContact = self._combine_m2m_field_into_db(
-                            cls_obj, m2mattrs, newContact, m2m
-                        )
+                        try:
+                            newContact = self._combine_m2m_field_into_db(
+                                cls_obj, m2mattrs, newContact, m2m
+                            )
+                        except DataError:
+                            self.bad_m2m.setdefault(newContact.cc_id, []).\
+                                append({newContact.cc_id: m2mattrs})
                 self._combine_notes_into_db(contact.get('notes'), newContact)
 
                 newContact.save()
@@ -440,7 +445,7 @@ class DataCombine():
                     )
                 else:
                     self.logger.error(
-                        f"Field error on contact #{c_i} {de.args[0]}"
+                        f"Data error on contact #{c_i} {de.args[0]}"
                     )
             except FieldError:
                 self.logger.warning(

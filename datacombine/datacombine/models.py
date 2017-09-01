@@ -110,6 +110,16 @@ class Phone(models.Model):
                 f"{phone_num}...maybe there is more than 1 set of numbers"
             )
 
+        for field in Phone._meta.get_fields():
+            if field.name is 'id':
+                continue
+            num = getattr(self, field.name)
+            if num and len(num) > field.max_length:
+                raise FieldError(
+                    f"'{field.name}' is too long; {len(num)} > "
+                    f"{field.max_length}"
+                )
+
     def _parsenums(self, nums):
         if len(nums) < 7 or 7 < len(nums) < 10:
             raise FieldError(
