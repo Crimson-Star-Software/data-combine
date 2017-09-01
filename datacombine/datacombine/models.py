@@ -56,6 +56,11 @@ class Phone(models.Model):
         )
 
     def __eq__(self, other):
+        if other is None:
+            other = Phone()
+            other.create_from_str("")
+        elif not hasattr(other, "area_code"):
+            return False
         return self.extension == other.extension and\
                self.number == other.number and\
                self.area_code == other.area_code
@@ -206,7 +211,7 @@ class Contact(models.Model):
     prefix_name = models.CharField(max_length=10, null=True)
     job_title = models.CharField(max_length=50, null=True)
     source = models.CharField(max_length=50, null=True)
-    status = models.CharField(max_length=2, choices=STATUS_CHOICES)
+    status = models.CharField(max_length=2, choices=STATUS_CHOICES, null=True)
 
     def __str__(self):
         return "{0}{1}{2}".format(
@@ -218,5 +223,7 @@ class Contact(models.Model):
     @staticmethod
     def convert_status_str_to_code(statstr):
         for code, stat in STATUS_CHOICES:
+            if not statstr:
+                return ""
             if statstr.upper()[:2] == code:
                 return code

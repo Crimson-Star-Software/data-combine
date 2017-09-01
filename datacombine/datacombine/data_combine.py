@@ -1,10 +1,13 @@
 import ciso8601
+import datetime
+from dateutil import parser
 import json
 import logging
 import os
 
 import requests
 from django.core.exceptions import FieldError
+from django.db.utils import DataError
 from django.db import transaction, IntegrityError
 from .models import (
     Contact,
@@ -15,18 +18,21 @@ from .models import (
     Address,
     UserStatusOnCCList
 )
+from profilestats import profile
 
 from .settings import BASE_DIR
 from .secret_settings import API_KEY, AUTH_KEY
 from .utils import updt
 
+
 BASE_URI = 'https://api.constantcontact.com'
 HTTP_FAIL_THRESHOLD = 400
 HERE = os.path.join(BASE_DIR, "datacombine")
 
+
 class DataCombine():
     def __init__(self, api_key=API_KEY,auth_key=AUTH_KEY,
-                 loglvl=logging.DEBUG, logger=__name__,
+                 loglvl=logging.ERROR, logger=__name__,
                  logfile='dcombine.log'):
         self.api_key = api_key
         self.token = auth_key
@@ -34,6 +40,7 @@ class DataCombine():
         self.headers = {'Authorization': f'Bearer {self.token}'}
         self.contacts = []
         self.cclists = []
+        self.bad_phone_nums = dict()
 
     def _setup_logger(self, lvl, logger, logfile="dcombine.log",
                       max_bytes=1000000, backup_count=5):
@@ -246,36 +253,60 @@ class DataCombine():
 
     @transaction.atomic
     def _initial_contact_setup_from_json(self, contact):
-        cf = DataCombine.get_init_values_for_model(Contact)
-        newContact = Contact(**{
-            x: contact[x if not x.startswith('cc_') else x[3:]] for x in cf
-        })
-        newContact.status = Contact.convert_status_str_to_code(
-            newContact.status
-        )
-        newContact.save()
-        return newContact
+        try:
+            cf = DataCombine.get_init_values_for_model(Contact)
+            fields = dict()
+            for x in cf:
+                try:
+                    if not x.startswith('cc_'):
+                        fields[x] = contact.get(x)
+                    else:
+                        fields[x] = contact.get(x[3:])
+                except KeyError as ke:
+                    key = ke.args[0]
+                    if Contact._meta.get_field(key).null:
+                        fields[x] = ""
+                    else:
+                        raise ke
+            newContact = Contact(**fields)
+            newContact.status = Contact.convert_status_str_to_code(
+                newContact.status
+            )
+            newContact.save()
+            return newContact
+        except KeyError as ke:
+            key = ke.args[0]
+            self.logger.error(
+                f"Encountered a KeyError on setting "
+                f"'_initial_contact_setup_from_json', there is no key "
+                f"'{key}' in contact: {contact}"
+            )
+            raise
 
     @transaction.atomic
     def combine_phone_number_into_db(self, phone_num, newContact, phfld):
-        try:
-            if not phone_num:
-                return
-            ph = Phone()
-            ph.create_from_str(phone_num)
-            ph_in_db = Phone.is_phone_in_db(ph)
-            phobj = getattr(newContact, phfld)
-            if ph_in_db:
-                self.logger.debug(
-                    f"Phone number '{ph}' is already in database"
-                )
-                phobj.add(ph_in_db.first())
-            else:
-                ph.save()
-                phobj.add(ph)
-        except FieldError:
-            self.logger.exception(f"Field error on {contact} for {phfld}")
+        if not phone_num:
             return
+        ph = Phone()
+        try:
+            ph.create_from_str(phone_num)
+        except FieldError as fe:
+            self.logger.warning(f"{fe}")
+
+        if ph == None:
+            self.logger.info(f"phone_num='{phone_num}' produces None")
+            return
+
+        ph_in_db = Phone.is_phone_in_db(ph)
+        phobj = getattr(newContact, phfld)
+        if ph_in_db:
+            self.logger.debug(
+                f"Phone number '{ph}' is already in database"
+            )
+            phobj.add(ph_in_db.first())
+        else:
+            ph.save()
+            phobj.add(ph)
 
     @transaction.atomic
     def _combine_m2m_field_into_db(self, cls_obj, m2mattrs, newContact, m2m):
@@ -283,7 +314,18 @@ class DataCombine():
             cls_obj, m2mattrs
         )
         if m2mobj:
-            m2mobj.save()
+            try:
+                m2mobj.save()
+            except DataError as de:
+                too_long = "value too long for type character varying"
+                if de.args[0].__contains__(too_long):
+                    for key, val in m2mattrs.items():
+                        cf = cls_obj._meta.get_field(key)
+                        if not val or not cf.max_length:
+                            continue
+                        if len(val) > cf.max_length:
+                            de.args = (cls_obj, key, val)
+                            raise de
             ncontact_m2mfield = getattr(newContact, m2m)
             ncontact_m2mfield.add(m2mobj)
         else:
@@ -302,11 +344,36 @@ class DataCombine():
                 newNote.save()
 
     @transaction.atomic
-    def _save_ustat_objects(self, ustat_objects):
-        for ustat_obj in ustat_objects:
-            ustat_obj.save()
+    def _save_ustat_object(self, ustat_object):
+        ustat_object.save()
 
+    def _save_ustat_objects(self, contact, newContact, updating):
+        for xcclist in contact.get('lists'):
+            listobj = ConstantContactList.objects.filter(
+                cc_id=xcclist['id']
+            )
+            liststat = "HI" if xcclist.get('status').startswith('H') \
+                else "AC"
+            ustat_obj = UserStatusOnCCList(
+                cclist=listobj.first(), user=newContact, status=liststat
+            )
+            if updating:
+                con = newContact.cc_lists.filter(cc_id=xcclist['id']).first()
+                if con.status != liststat:
+                    con.status = liststat
+                    con.update()
+                return
+            self._save_ustat_object(ustat_obj)
+
+    def _continue_combine(self, count):
+        # Update progress bar
+        updt(len(self.contacts), count)
+        return count+1
+
+    @profile(print_stats=10, dump_stats=True, profile_filename="p3.out")
     def combine_contacts_into_db(self):
+        begin_time = datetime.datetime.now()
+        processed = 0
         if not hasattr(self, 'contacts'):
             raise AttributeError("No contacts found")
         elif not hasattr(self, 'cclists'):
@@ -318,19 +385,27 @@ class DataCombine():
             self.combine_cclist_json_into_db(cclist)
         for c_i, contact in enumerate(self.contacts):
             try:
-                newContact = self._initial_contact_setup_from_json(contact)
+                newContact = None
+                updatingContact = False
+                contact_in_db = Contact.objects.filter(cc_id=contact.get("id"))
+                if contact_in_db:
+                    contact_in_db = contact_in_db.first()
+                    contact_date = parser.parse(contact.get("modified_date"))
+                    if contact_in_db.cc_modified_date == contact_date:
+                        continue
+                    else:
+                        newContact = contact_in_db
+                        del contact_in_db
+                else:
+                    newContact = self._initial_contact_setup_from_json(contact)
+
                 non_phone_or_cclist_m2m = [
                     (Address, "addresses"),
                     (EmailAddress, "email_addresses"),
                 ]
-                for xcclist in contact.get('lists'):
-                    listobj = ConstantContactList.objects.first()
-                    liststat = "HI" if xcclist.get('status').startswith('H')\
-                        else "AC"
-                    ustat_obj = UserStatusOnCCList(
-                        cclist=listobj, user=newContact, status=liststat
-                    )
-                    ustat_objects.append(ustat_obj)
+
+                self._save_ustat_objects(contact, newContact, updatingContact)
+
                 phone_fields = [
                     'home_phone',
                     'work_phone',
@@ -338,9 +413,14 @@ class DataCombine():
                     'fax'
                 ]
                 for phfld in phone_fields:
-                    self.combine_phone_number_into_db(
-                        contact.get(phfld), newContact, phfld
-                    )
+                    try:
+                        self.combine_phone_number_into_db(
+                            contact.get(phfld), newContact, phfld
+                        )
+                    except FieldError:
+                        self.logger.error(f"BAD PHONE {newContact.cc_id}")
+                        self.bad_phone_nums.setdefault(newContact.cc_id, [])\
+                            .append({"phfld":contact.get(phfld)})
                 for cls_obj, m2m in non_phone_or_cclist_m2m:
                     for m2mattrs in contact.get(m2m):
                         newContact = self._combine_m2m_field_into_db(
@@ -348,18 +428,36 @@ class DataCombine():
                         )
                 self._combine_notes_into_db(contact.get('notes'), newContact)
 
-                self._save_ustat_objects(ustat_objects)
-
                 newContact.save()
 
-                # Update progress bar
-                updt(len(self.contacts), c_i)
             except KeyboardInterrupt:
                 self.logger.info("Interrupt signal received...quitting.")
                 return
+            except DataError as de:
+                if len(de.args) == 3:
+                    self.logger.error(
+                        "For class object "
+                        f"{de.args[0]}.{de.args[1]}={de.args[2]}. Is too long."
+                    )
+                else:
+                    self.logger.error(
+                        f"Field error on contact #{c_i} {de.args[0]}"
+                    )
+            except FieldError:
+                self.logger.warning(
+                    f"Field error on contact #{c_i} {contact} for {phfld}"
+                    "...skipping..."
+                )
             except:
                 self.logger.exception(f"Exception on contact #{c_i}...skipping...")
-
+            finally:
+                processed = self._continue_combine(processed)
+        end_time = datetime.datetime.now()
+        total_time = (end_time - begin_time).total_seconds()
+        self.logger.info(
+            f"Combined time to process '{processed}' contacts: "
+            f"{total_time // 60} minutes and {total_time % 60} seconds."
+         )
 
 if __name__ == '__main__':
     dc = DataCombine()

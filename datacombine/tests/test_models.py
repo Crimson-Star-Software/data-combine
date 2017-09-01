@@ -77,6 +77,11 @@ class PhoneTestCase(TestCase):
         ph.create_from_str("")
         self.assertTrue(ph.area_code == ph.number == ph.extension == None)
 
+    def test_null_phone_is_none(self):
+        ph = dcmodels.Phone()
+        ph.create_from_str("")
+        self.assertTrue(ph == None)
+
     def tearDown(self):
         dcmodels.Phone.objects.all().delete()
 

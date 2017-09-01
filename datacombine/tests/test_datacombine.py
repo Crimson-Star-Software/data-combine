@@ -10,13 +10,14 @@ from datacombine.models import (
     Address,
     UserStatusOnCCList
 )
+import logging
 import os
 import re
 
 
 class TestDataCombine(TestCase):
     def setUp(self):
-        self.dc = DataCombine(logfile='dcombine_test.log')
+        self.dc = DataCombine(loglvl=logging.DEBUG, logfile='dcombine_test.log')
         self.yaya_orl_json = dict(
             created_date='2013-08-04T23:38:45.000Z',
             cc_id='101',
