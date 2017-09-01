@@ -290,8 +290,8 @@ class DataCombine():
         ph = Phone()
         try:
             ph.create_from_str(phone_num)
-        except FieldError as fe:
-            self.logger.warning(f"{fe}")
+        except FieldError:
+            raise FieldError(phone_num, newContact, phfld)
 
         if ph == None:
             self.logger.info(f"phone_num='{phone_num}' produces None")
@@ -417,8 +417,7 @@ class DataCombine():
                         self.combine_phone_number_into_db(
                             contact.get(phfld), newContact, phfld
                         )
-                    except FieldError:
-                        self.logger.error(f"BAD PHONE {newContact.cc_id}")
+                    except FieldError as fe:
                         self.bad_phone_nums.setdefault(newContact.cc_id, [])\
                             .append({"phfld":contact.get(phfld)})
                 for cls_obj, m2m in non_phone_or_cclist_m2m:
