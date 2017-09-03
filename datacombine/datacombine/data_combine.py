@@ -145,6 +145,7 @@ class DataCombine():
             else:
                 params['modified_since'] = modified_since
         r = requests.get(url, params=params, headers=self.headers)
+        self.logger.debug(f"Making list request: {r}")
 
         if r.status_code >= HTTP_FAIL_THRESHOLD:
             return self._report_cc_api_request_fail(r)
@@ -171,6 +172,14 @@ class DataCombine():
             f"{most_recent_list_dt} and harvested Constant Contact"
             f" Contacts from {most_recent_contact_dt}."
         )
+
+    def combine_and_update_new_entries(self):
+        # Get all updated lists and contacts
+        self.update_local_db_caches()
+
+        for cclist in self.cclists:
+            self.combine_cclist_json_into_db(cclist)
+        self.combine_contacts_into_db()
 
     def read_from_highrise_contact_stash(self, jfname="yaya.json"):
         with open(jfname, 'r') as f:
@@ -419,7 +428,7 @@ class DataCombine():
         updt(len(self.contacts), count)
         return count+1
 
-    @profile(print_stats=10, dump_stats=True, profile_filename="p3.out")
+    #@profile(print_stats=10, dump_stats=True, profile_filename="p3.out")
     def combine_contacts_into_db(self):
         begin_time = datetime.datetime.now()
         processed = 0

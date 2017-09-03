@@ -131,3 +131,9 @@ datacombine/datacombine/secret_settings.py
 
 # Ignore local dbs
 datacombine/db.sqlite3
+
+# Ignore profile objects
+*.out
+
+# Ignore logs
+datacombine/datacombine/logs/
