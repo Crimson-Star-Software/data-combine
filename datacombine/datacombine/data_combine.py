@@ -156,7 +156,13 @@ class DataCombine():
 
     def _get_most_recent_datetime(self, cls_obj, param):
         by_most_recent = cls_obj.objects.order_by('-'+param)
-        return getattr(by_most_recent.first(), param).isoformat()
+        if not by_most_recent:
+            return None
+        mrdt = getattr(by_most_recent.first(), param)
+        if mrdt:
+            return mrdt.isoformat()
+        else:
+            return None
 
     def update_local_db_caches(self):
         most_recent_list_dt = self._get_most_recent_datetime(
@@ -515,6 +521,7 @@ class DataCombine():
                 processed = self._continue_combine(processed)
         end_time = datetime.datetime.now()
         total_time = (end_time - begin_time).total_seconds()
+        updt(len(self.contacts), len(self.contacts))
         self.logger.info(
             f"Combined time to process '{processed}' contacts: "
             f"{total_time // 60} minutes and {total_time % 60} seconds."
