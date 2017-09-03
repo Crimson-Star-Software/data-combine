@@ -30,6 +30,12 @@ HTTP_FAIL_THRESHOLD = 400
 HERE = os.path.join(BASE_DIR, "datacombine")
 
 
+class CombineException(BaseException):
+    def __init__(self, message=""):
+        super()
+        self.message = message
+
+
 class DataCombine():
     def __init__(self, api_key=API_KEY,auth_key=AUTH_KEY,
                  loglvl=logging.ERROR, logger=__name__,
@@ -91,13 +97,26 @@ class DataCombine():
             self.logger.debug("No more contacts to harvest.")
             return False
 
-    def harvest_contacts(self, status='ALL', limit='500',
-                         api_uri='/v2/contacts'):
+    def harvest_contacts(self, status='ALL', limit='500', modified_since=None,
+                         api_uri='/v2/contacts', delete_contacts=True):
+        if delete_contacts:
+            self.contacts = []
+        else:
+            raise CombineException(
+                "Contacts already exist and 'delete_contacts' parameter "
+                "is False"
+            )
+
         params = {
             'status': status,
             'limit': limit,
             'api_key': self.api_key,
         }
+        if modified_since:
+            if not self._check_for_iso_8601_format(modified_since):
+                raise TypeError(f"'{modified_since}' is not in iso8601 format")
+            else:
+                params['modified_since'] = modified_since
         next_page = api_uri
         while next_page:
             next_page = self._harvest_contact_page(params, next_page)
@@ -105,7 +124,17 @@ class DataCombine():
     def _check_for_iso_8601_format(self, dt):
         return bool(ciso8601.parse_datetime(dt))
 
-    def harvest_lists(self, modified_since=None, api_uri='/v2/lists'):
+    def harvest_lists(self, modified_since=None,
+                      api_uri='/v2/lists', delete_cclists=True):
+
+        if delete_cclists:
+            self.cclists = []
+        else:
+            raise CombineException(
+                "cclists already exist and 'delete_cclists' parameter "
+                "is False"
+            )
+
         params = {
             'api_key': self.api_key,
         }
@@ -122,6 +151,25 @@ class DataCombine():
         self.cclists = r.json()
         self.logger.debug(
             f"Successfully downloaded '{len(self.cclists)}' lists"
+        )
+
+    def _get_most_recent_datetime(self, cls_obj, param):
+        by_most_recent = cls_obj.objects.order_by('-'+param)
+        return getattr(by_most_recent.first(), param).isoformat()
+
+    def update_local_db_caches(self):
+        most_recent_list_dt = self._get_most_recent_datetime(
+            ConstantContactList, 'modified_date'
+        )
+        most_recent_contact_dt = self._get_most_recent_datetime(
+            Contact, 'cc_modified_date'
+        )
+        self.harvest_lists(modified_since=most_recent_list_dt)
+        self.harvest_contacts(modified_since=most_recent_contact_dt)
+        self.logger.info(
+            "Harvested Constant Contact lists from "
+            f"{most_recent_list_dt} and harvested Constant Contact"
+            f" Contacts from {most_recent_contact_dt}."
         )
 
     def read_from_highrise_contact_stash(self, jfname="yaya.json"):
