@@ -42,6 +42,10 @@ class DataCombine():
                  logfile='dcombine.log'):
         self.api_key = api_key
         self.token = auth_key
+        # Check for log directory
+        logdir = os.path.join(HERE, "logs")
+        if not os.path.isdir(logdir):
+            os.mkdir(logdir)
         self._setup_logger(loglvl, logger, logfile)
         self.headers = {'Authorization': f'Bearer {self.token}'}
         self.contacts = []
