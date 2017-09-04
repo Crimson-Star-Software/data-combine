@@ -1,19 +1,24 @@
 {% extends '_base.html' %}
 {% load static %}
+{% load humanize %}
 {% block title %}Data Combine{% endblock %}
 
 {% block bodyspecs %}background="{% static 'pictures/yaya_orl.jpeg' %}"{% endblock %}
 {% block content %}
     <div class="container">
         <div class="jumbotron">
-            <h1 class="display-3">Hello, {% if request.user.first_name %}
-                                            {{ request.user.first_name }}!
+            <h1 class="display-3">Hello, {% if not user.get_short_name  %}
+                                            {{ user.get_username }}!
                                         {% else %}
-                                            {{request.user.user_name}}!
+                                            {{ user.get_short_name }}!
                                         {% endif %}</h1>
                 <p class="lead">Let's Data</p>
             <hr class="my-4">
-            <p>STUB</p>
+            {% if contacts_count > 0 %}
+                <p>Found {{contacts_count|intcomma}} contacts</p>
+            {% else %}
+                You ain't got no contacts...
+            {% endif %}
         </div>
     </div>
 {% endblock %}
