@@ -1,17 +1,28 @@
 {% extends '_base.html' %}
-
+{% load staticfiles %}
 {% block title %}Login{% endblock %}
-
+{% block inpage_css %}
+#p {max-width: 100px }
+{% endblock %}
+{% block bodyspecs %}background="{% static 'pictures/yaya_orl.jpeg' %}"{% endblock %}
 {% block content %}
     <div class="container">
-        <div class="jumbotron">
-            <h1>What's the password?</h1>
-            <p><small>...and no it's not "I have weed"</small></p>
-            <form method="post">
-                {% csrf_token %}
-                {{ form.as_p }}
-                <button class="btn btn-primary btn-lg" type="submit" role="button">Login</button>
-            </form>
+        <div class="jumbotron Absolute-Center is-Responsive">
+            <h1>Data Combine</h1>
+            <p><small>Enter the combine!</small></p>
+            <div clas="row">
+                <div class="col-sm-6">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <button class="btn btn-primary btn-lg" type="submit" role="button">Login</button>
+                    </form>
+
+                </div>
+                <div class="col-sm-6">
+                    <img src="{% static 'pictures/crimson_star_software_logo.png' %}">
+                </div>
+            </div>
         </div>
     </div>
 {% endblock %}

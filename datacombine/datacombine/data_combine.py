@@ -561,7 +561,7 @@ class DataCombine():
                         f"Data error on contact #{c_i} {de.args[0]}"
                     )
             except FieldError:
-                self.logger.warning(
+                 self.logger.warning(
                     f"Field error on contact #{c_i} {contact} for {phfld}"
                     "...skipping..."
                 )

@@ -5,26 +5,35 @@
     <meta charset="UTF-8">
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/yaya_style.css' %}">
+    <style>
+        {% block inpage_css %}{% endblock %}
+    </style>
     <title>{% block title %}{% endblock %}</title>
 </head>
-<body>
+<body {% block bodyspecs %}{% endblock %}>
     <!-- Top Navbar -->
   <header class="navbar navbar-inverse navbar-fixed-top">
     <nav>
       <div class="container">
         <div class="navbar-header">
-        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navLinks" aria-expanded="false">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
+                data-target="#navLinks" aria-expanded="false">
           <span class="sr-only">Toggle navigation</span>
           <span class="icon-bar"></span>
           <span class="icon-bar"></span>
           <span class="icon-bar"></span>
         </button>
-          <a id="myBrand" class="navbar-brand" href="#about">YAYA's Data Combine</a>
+            <a class="navbar-brand" href="#">
+                <div class="container-fluid">
+                    <img src="{% static 'pictures/data_combine_smaller.png' %}" height="30" class="d-inline-block align-top" alt="">
+                    YAYA Data Combine
+                </div>
+            </a>
         </div>
         <div id="navLinks" class="navbar-collapse collapse">
           <ul class="nav navbar-nav navbar-right">
             <li><a id="about-btn" class="btn shadowbtn" href="#about">About</a></li>
-            <li><a id="portfolio-btn" class="btn" href="#portfolio">Portfolio</a></li>
             {% if user.is_authenticated %}
               <li><a id="logout-btn"  class="btn" href="{% url 'logout' %}">Logout</a></li>
             {% endif %}

@@ -1,17 +1,19 @@
 {% extends '_base.html' %}
 {% load static %}
 {% block title %}Data Combine{% endblock %}
+
+{% block bodyspecs %}background="{% static 'pictures/yaya_orl.jpeg' %}"{% endblock %}
 {% block content %}
     <div class="container">
         <div class="jumbotron">
-            <h1 class="display-3">Hello, YAYA!</h1>
+            <h1 class="display-3">Hello, {% if request.user.first_name %}
+                                            {{ request.user.first_name }}!
+                                        {% else %}
+                                            {{request.user.user_name}}!
+                                        {% endif %}</h1>
                 <p class="lead">Let's Data</p>
-                <img src="{% static 'pictures/data_combine_logo_smaller.png' %}" alt="Data Combine Logo" />
             <hr class="my-4">
-            <p>Nothing yet, check back at...<strong>IT'S HIIIIIIIIGH NOON!</strong></p>
-            <p class="lead">
-                <a class="btn btn-primary btn-lg" href="#" role="button">Button Does Nothing!</a>
-            </p>
+            <p>STUB</p>
         </div>
     </div>
 {% endblock %}
