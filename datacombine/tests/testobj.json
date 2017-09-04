@@ -1,0 +1,54 @@
+{
+  "cclists": [{
+    "contact_count": 7,
+    "created_date": "2014-10-10T16:33:14.000Z",
+    "id": "1648",
+    "modified_date": "2014-10-10T16:33:14.000Z",
+    "name": "YAYA_Netherlands",
+    "status": "HIDDEN"
+  }],
+  "contacts": [{
+    "addresses": [{
+        "address_type": "BUSINESS",
+        "city": "386-344-4207",
+        "country_code": "us",
+        "id": "d9d21df0-416c-dead-8f62-7815cb74a555",
+        "line1": "",
+        "line2": "",
+        "line3": "",
+        "postal_code": "",
+        "state": "",
+        "state_code": "",
+        "sub_postal_code": ""
+      }],
+   "cell_phone": "",
+   "company_name": "Columbia High School",
+   "confirmed": "False",
+   "created_date": "2011-06-27T18:46:25.000Z",
+   "custom_fields": [],
+   "email_addresses": [{
+     "confirm_status": "NO_CONFIRMATION_REQUIRED",
+     "email_address": "nerp@gmail.com",
+     "id": "57c8da70-616c-11e3-83e7-782bcb740129",
+     "opt_out_date": "2011-06-29T21:57:05.000Z",
+     "status": "OPTOUT"
+   }],
+   "fax": "",
+   "first_name": "Test",
+   "home_phone": "",
+   "id": "2",
+   "job_title": "",
+   "last_name": "Dont Fill'Right",
+   "lists": [],
+   "middle_name": "",
+   "modified_date": "2011-06-29T21:57:05.000Z",
+   "notes": [],
+   "prefix_name": "",
+   "source": "",
+   "source_details": "",
+   "status": "OPTOUT",
+   "work_phone": ""
+    }
+
+  ]
+}

@@ -198,20 +198,31 @@ class DataCombine():
     def read_constantcontact_objects_from_json(
             self,
             jfname=os.path.join(HERE, "yaya_cc.json"),
-            override_contacts=True
+            override_contacts=True,
+            override_lists=True
     ):
-        if self.contacts:
-            if override_contacts:
-                self.logger.debug("Overriding contacts...")
-            else:
-                self.logger.info(f"'{len(self.contacts)}' already found, "
-                                 f"not overriding.")
-                return
-
         with open(jfname, 'r') as jf:
             data = json.loads(jf.read())
-            self.contacts = data['contacts']
-            self.cclists = data['cclists']
+            if hasattr(self, 'contacts'):
+                if override_contacts:
+                    self.logger.debug("Overriding contacts...")
+                    self.contacts = data['contacts']
+                else:
+                    self.logger.info(f"'{len(self.contacts)}' already found, "
+                                     f"not overriding. Merging with contacts.")
+                    self._update_ccobj("contacts", data['contacts'])
+            if hasattr(self, 'cclists'):
+                if override_lists:
+                    self.logger.debug("Overriding lists...")
+                    self.cclists = data['cclists']
+                else:
+                    self.logger.info(f"'{len(self.cclists)}' already found, "
+                                     f"not overriding. Merging with lists.")
+                    self._update_ccobj("cclists", data['cclists'])
+            remed = data.get('to_remidate')
+            if remed:
+                self.bad_phone_nums = remed.get('bad_phone_nums')
+                self.bad_m2m = remed.get('bad_m2m')
 
     def _prep_objects_to_dump(self, data):
         add_contacts = []
@@ -231,22 +242,57 @@ class DataCombine():
                     dumps.append(self_field)
         return (add_contacts, add_lists)
 
+    def _update_ccobj(self, field, new_ccobj):
+        obj_ids = [obj.get('id') for obj in getattr(self, field)]
+        if hasattr(self, field):
+            ccobj = getattr(self, field)
+            for obj in new_ccobj:
+                if obj.get('id') in obj_ids:
+                    continue
+                else:
+                    ccobj.append(obj)
+
     def dump_constantcontact_objects_from_json(
             self,
             jfname=os.path.join(HERE, "yaya_cc.json"),
             override_json=True
     ):
-        mode = 'w' if os.path.isfile(jfname) and not override_json else 'w+'
+        mode = 'w' if not override_json else 'w+'
+        data = dict()
         with open(jfname, mode) as jf:
             if mode == 'w+':
-                data = json.load(jf)
-                self.logger.debug("Preparing to dump objects...")
-                contacts, cclists = self._prep_objects_to_dump(data)
-                json.dump({'contacts': contacts, 'cclists': cclists}, jf)
-            else:
-                json.dump(
-                    {'contacts': self.contacts, 'cclists': self.cclists}, jf
-                )
+                try:
+                    self.logger.debug("Preparing to dump objects...")
+                    data = json.load(jf)
+                    contacts, cclists = self._prep_objects_to_dump(data)
+                except json.JSONDecodeError as jde:
+                    fileinfo = os.stat(jfname)
+                    if fileinfo.st_size == 0:
+                        msg = f"File '{jfname}' is 0 bytes...writing to it"
+                        if logging.INFO >= self.logger.level:
+                            print(msg)
+                        self.logger.info(msg)
+                    else:
+                        self.logger.exception(
+                            f"Could not read JSON file {jfname}. "
+                            f"No objects dumped"
+                        )
+                        raise jde
+                    contacts, cclists = (dict(), dict())
+                self._update_ccobj('contacts', contacts)
+                self._update_ccobj('cclists', cclists)
+            data = {
+                'contacts': self.contacts,
+                'cclists': self.cclists,
+                'to_remidate': {
+                    'bad_phone_numbers': dict(),
+                    'bad_m2m': dict()
+                }
+            }
+            if hasattr(self, 'bad_phone_numbers'):
+                data['to_remidate']['bad_phone_nums'] = self.bad_phone_nums
+            if hasattr(self, 'bad_m2m'):
+                data['to_remidate']['bad_m2m'] = self.bad_m2m
             self.logger.debug("Objects dumped successfully")
 
     @classmethod

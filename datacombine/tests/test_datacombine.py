@@ -15,6 +15,9 @@ import os
 import re
 
 
+HERE = os.path.join(os.getcwd(), "tests")
+test_pth = os.path.join(HERE, "testobj.json")
+
 class TestDataCombine(TestCase):
     def setUp(self):
         self.dc = DataCombine(loglvl=logging.DEBUG, logfile='dcombine_test.log')
@@ -353,6 +356,37 @@ class TestDataCombine(TestCase):
 
         # Delete Nate
         nate.delete()
+
+    def test_read_constantcontacts_from_json_nothing_in_dcobj(self):
+        dcTT, dcTF, dcFT, dcFF = (DataCombine(), DataCombine(),
+                                  DataCombine(), DataCombine())
+
+        dcTT.read_constantcontact_objects_from_json(test_pth)
+        dcTF.read_constantcontact_objects_from_json(test_pth, True, False)
+        dcFT.read_constantcontact_objects_from_json(test_pth, False, True)
+        dcFF.read_constantcontact_objects_from_json(test_pth, False, False)
+        self.assertTrue(
+            dcTT.contacts == dcTF.contacts == dcFT.contacts == dcFF.contacts
+        )
+        self.assertTrue(
+            dcTT.cclists == dcTF.cclists == dcFT.cclists == dcFF.cclists
+        )
+
+    def test_read_constantcontacts_lists_from_json_merge(self):
+        dc = DataCombine()
+        dc2 = DataCombine()
+        dc.cclists = [{
+            "contact_count": 7,
+            "created_date": "2014-10-10T16:33:14.000Z",
+            "id": "1648",
+            "modified_date": "2014-10-10T16:33:14.000Z",
+            "name": "YAYA_Netherlands",
+            "status": "HIDDEN"
+        }]
+        dc.read_constantcontact_objects_from_json(test_pth,
+                                                  override_lists=False)
+        dc2.read_constantcontact_objects_from_json(test_pth)
+        self.assertListEqual(dc.cclists, dc2.cclists)
 
     def tearDown(self):
         if os.path.isfile(self.log_loc):
