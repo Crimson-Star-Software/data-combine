@@ -1,7 +1,7 @@
 {% extends '_base.html' %}
 {% load static %}
 {% load humanize %}
-{% block title %}Data Combine{% endblock %}
+{% block title %}Data Combine: Dashboard{% endblock %}
 
 {% block bodyspecs %}background="{% static 'pictures/yaya_orl.jpeg' %}"{% endblock %}
 {% block content %}
@@ -14,11 +14,9 @@
                                         {% endif %}</h1>
                 <p class="lead">Let's Data</p>
             <hr class="my-4">
-            {% if contacts_count > 0 %}
-                <p>Found {{contacts_count|intcomma}} contacts</p>
-            {% else %}
-                You ain't got no contacts...
-            {% endif %}
+            <div class="container">
+                <p>STUFF!</p>
+            </div>
         </div>
     </div>
 {% endblock %}

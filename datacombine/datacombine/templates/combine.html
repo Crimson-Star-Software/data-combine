@@ -1,0 +1,15 @@
+{% extends '_base.html' %}
+{% load static %}
+{% load humanize %}
+{% block title %}Data Combine: Combining...{% endblock %}
+
+
+{% block bodyspecs %}background="{% static 'pictures/yaya_orl.jpeg' %}"{% endblock %}
+{% block content %}
+    <div class="container">
+        <div class="jumbotron">
+            <p>Placeholder for a bunch of stuff that should be happening...</p>
+            <a href="{% url 'harvest_init' %}">Home</a>
+        </div>
+    </div>
+{% endblock %}

@@ -21,9 +21,15 @@ from .models import (
 from profilestats import profile
 
 from .settings import BASE_DIR
-from .secret_settings import API_KEY, AUTH_KEY
 from .utils import updt
 
+API_KEY = None
+AUTH_KEY = None
+
+try:
+    from .secret_settings import API_KEY, AUTH_KEY
+except ImportError:
+    pass
 
 BASE_URI = 'https://api.constantcontact.com'
 HTTP_FAIL_THRESHOLD = 400

@@ -17,14 +17,19 @@ from django.conf.urls import url
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
-from datacombine.views import HomeView
+from datacombine.views import DashView, HarvestInitializationView, CombineView
 
 urlpatterns = [
+    url(r'dash/', login_required(DashView.as_view())),
+    url(r'harvest/combining/', login_required(CombineView.as_view()),
+        name='combining'),
+    url(r'harvest/', login_required(HarvestInitializationView.as_view()),
+        name='harvest_init'),
     url(r'^admin/', admin.site.urls),
     url(r'^login/$', auth_views.login,
         kwargs={'template_name': 'login.html',
                 'redirect_authenticated_user': True},
         name='login'),
     url(r'^logout/$', auth_views.logout, {'next_page': '/'}, name='logout'),
-    url(r'^$', login_required(HomeView.as_view(), login_url='/login'))
+    url(r'^$', login_required(DashView.as_view(), login_url='/login')),
 ]
