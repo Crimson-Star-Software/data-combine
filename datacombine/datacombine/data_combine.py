@@ -43,7 +43,7 @@ class CombineException(BaseException):
 
 
 class DataCombine():
-    def __init__(self, api_key=API_KEY,auth_key=AUTH_KEY,
+    def __init__(self, api_key=API_KEY, auth_key=AUTH_KEY,
                  loglvl=logging.ERROR, logger=__name__,
                  logfile='dcombine.log'):
         self.api_key = api_key
@@ -491,7 +491,7 @@ class DataCombine():
         return count+1
 
     #@profile(print_stats=10, dump_stats=True, profile_filename="p3.out")
-    def combine_contacts_into_db(self):
+    def combine_contacts_into_db(self, update_web_interface=False):
         begin_time = datetime.datetime.now()
         processed = 0
         if not hasattr(self, 'contacts'):
@@ -574,10 +574,17 @@ class DataCombine():
             except:
                 self.logger.exception(f"Exception on contact #{c_i}...skipping...")
             finally:
-                processed = self._continue_combine(processed)
+                if update_web_interface:
+                    yield {'processed': processed, 'total': len(self.contacts)}
+                    processed += 1
+                else:
+                    processed = self._continue_combine(processed)
         end_time = datetime.datetime.now()
         total_time = (end_time - begin_time).total_seconds()
-        updt(len(self.contacts), len(self.contacts))
+        if update_web_interface:
+            yield {'processed': len(self.contacts), 'total': len(self.contacts)}
+        else:
+            updt(len(self.contacts), len(self.contacts))
         self.logger.info(
             f"Combined time to process '{processed}' contacts: "
             f"{total_time // 60} minutes and {total_time % 60} seconds."

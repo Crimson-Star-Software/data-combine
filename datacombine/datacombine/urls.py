@@ -17,13 +17,17 @@ from django.conf.urls import url
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
-from datacombine.views import DashView, HarvestInitializationView, CombineView
+from datacombine import views
+
 
 urlpatterns = [
-    url(r'dash/', login_required(DashView.as_view())),
-    url(r'harvest/combining/', login_required(CombineView.as_view()),
+    url(r'^check_task_id/(?P<tid>[a-zA-Z0-9-]+)/$',
+        login_required(views.CheckTaskProgressAJAX.as_view()),
+        name='checktid'),
+    url(r'^dash/', login_required(views.DashView.as_view())),
+    url(r'^harvest/combining/', login_required(views.CombineView.as_view()),
         name='combining'),
-    url(r'harvest/', login_required(HarvestInitializationView.as_view()),
+    url(r'^harvest/', login_required(views.HarvestInitializationView.as_view()),
         name='harvest_init'),
     url(r'^admin/', admin.site.urls),
     url(r'^login/$', auth_views.login,
@@ -31,5 +35,5 @@ urlpatterns = [
                 'redirect_authenticated_user': True},
         name='login'),
     url(r'^logout/$', auth_views.logout, {'next_page': '/'}, name='logout'),
-    url(r'^$', login_required(DashView.as_view(), login_url='/login')),
+    url(r'^$', login_required(views.DashView.as_view(), login_url='/login')),
 ]

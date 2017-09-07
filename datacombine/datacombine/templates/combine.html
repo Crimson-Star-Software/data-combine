@@ -8,8 +8,27 @@
 {% block content %}
     <div class="container">
         <div class="jumbotron">
-            <p>Placeholder for a bunch of stuff that should be happening...</p>
+            <div class="progress">
+                <div class="progress progress-striped active" style="height:44px;">
+                    <div id="progress-bar" class="bar" style="width:1%;"></div>
+                </div>
+            </div>
             <a href="{% url 'harvest_init' %}">Home</a>
         </div>
     </div>
+{% endblock %}
+{% block jquery %}
+    function updateProgress(percentage){
+        if(percentage > 100) percentage = 100;
+        $('#progress-bar').css('width', percentage+'%');
+        $('#progress-bar').html(percentage+'%');
+    }
+    var harvest_source = new EventSource({% url 'checktid' tid=htid %})
+    harvest_source.onmessage = function(event) {
+        if(event.data.harvest_done){
+            $('.progress-bar').css('width', 100+'%').attr('aria-valuenow', 100);
+        } else {
+            $('.progress-bar').css('width', 0+'%').attr('aria-valuenow', 0);
+        }
+    }
 {% endblock %}

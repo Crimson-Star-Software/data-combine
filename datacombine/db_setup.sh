@@ -19,7 +19,7 @@ apt-get install -y sudo
 
 echo "debconf debconf/frontend select noninteractive" | sudo debconf-set-selections
 
-packages=("apt-utils" "cryptsetup" "postgresql" "postgresql-contrib")
+packages=("apt-utils" "cryptsetup" "postgresql" "postgresql-contrib" "redis-server")
 for p in "${packages[@]}"; do
     echo "Checking for '$p' on system..."
     if dpkg -l | grep -q " ${p} "; then

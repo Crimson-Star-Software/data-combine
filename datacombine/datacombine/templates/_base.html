@@ -65,10 +65,13 @@
   <!-- Bootstrap CSS local fallback -->
     <div id="bootstrapCssTest" class="hidden"></div>
       <script>
-        $(function() {
-          if ($('#bootstrapCssTest').is(':visible')) {
-            $("head").prepend('<link rel="stylesheet" href="/static/css/bootstrap.min.css">');
-          }
+        $(document).ready(function(){
+            $(function() {
+              if ($('#bootstrapCssTest').is(':visible')) {
+                $("head").prepend('<link rel="stylesheet" href="/static/css/bootstrap.min.css">');
+              }
+            });
+            {% block jquery %}{% endblock %}
         });
       </script>
 </body>
