@@ -1,3 +1,8 @@
+/* Our Stuff */
+body{
+    padding-top: 65px; /*Need so that Navbar doesn't cover content */
+}
+
 /* Centering CSS stuff -- Thanks Tony Galati! -- https://codepen.io/OldManJava/pen/bwupj */
 .Absolute-Center {
   margin: auto;

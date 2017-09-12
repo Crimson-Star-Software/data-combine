@@ -1,13 +1,13 @@
 from django.views.generic import View
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, reverse
 from django.views.generic.edit import FormView
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect
 
-import redis
 import json
 import logging
 import time
+from celery.result import AsyncResult
 
 from datacombine import models
 from datacombine.forms import HarvestForm
@@ -16,49 +16,37 @@ from datacombine import settings
 from datacombine import tasks
 
 class CombineView(View):
-    # def __init__(self):
-    #     if settings.DEBUG:
-    #         self.dc = DataCombine(loglvl=logging.DEBUG)
-    #     else:
-    #         self.dc = DataCombine()
-    #     self.combine_task_id = None
-    #     self.harvest_task_id = None
-    #     self.redis_pub = redis.StrictRedis()
-    #     self.pubsub = self.redis_pub.pubsub()
-    #
-    # def make_channel_uri(self, tid):
-    #     return f'task:{tid}:progress'
-    #
-    # @task(name="harvest_initialize")
-    # def harvest_initialize(self):
-    #     channel = self.make_channel_uri(self.harvest_task_id)
-    #     self.pubsub.subscribe(channel)
-    #     self.redis_pub.publish(channel, json.dumps({'harvest_done': False}))
-    #     #self.dc.harvest_lists()
-    #     #self.dc.harvest_contacts()
-    #     time.sleep(10)
-    #     self.redis_pub.publish(channel, json.dumps({'harvest_done': True}))
-    #     return
-    #
-    # @task(name="combine")
-    # def combine_contacts(self):
-    #     channel = self.make_channel_uri(self.combine_task_id)
-    #     self.pubsub.subscribe(channel)
-    #     for prg in self.dc.combine_contacts_into_db(update_web_interface=True):
-    #         self.redis_pub.publish(channel, json.dumps(prg))
-
     def get(self, request):
-        harvest_task_id = tasks.harvest.apply_async()
+        # harvest_task_id = tasks.harvest.apply_async()
         # self.combine_task_id = self.combine_contacts()
-        return render(request, 'combine.html', {'htid': harvest_task_id})
+        if 'job' in request.GET:
+            job_id = request.GET.get('job')
+            job = AsyncResult(job_id)
+            data = job.result or job.state
+            context = {
+                'data': data,
+                'task_id': job_id,
+            }
+            return render(request, 'combine.html', context)
+        else:
+            job = tasks.harvest.delay()
+            return HttpResponseRedirect(
+                reverse('combining') + '?job=' + job.id
+            )
 
     def post(self, request):
-        return render(request, 'combine.html')
-
-
-class CheckTaskProgressAJAX(View):
-    def get(self, request, tid):
-        return JsonResponse(self.pubsub.get_message().get('data'))
+        data = 'FAIL'
+        if request.is_ajax():
+            if 'task_id' in request.POST.keys() and request.POST['task_id']:
+                task_id = request.POST['task_id']
+                task = AsyncResult(task_id)
+                data = task.result or task.state
+            else:
+                data = 'No task_id in the request'
+        else:
+            data = 'This is not an ajax request'
+        json_data = json.dumps(data)
+        return HttpResponse(json_data, content_type='application/json')
 
 
 class HarvestInitializationView(FormView):

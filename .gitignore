@@ -137,3 +137,6 @@ datacombine/db.sqlite3
 
 # Ignore logs
 datacombine/datacombine/logs/
+
+# Ignore local dbs
+*.db

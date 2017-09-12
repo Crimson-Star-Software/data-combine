@@ -8,27 +8,61 @@
 {% block content %}
     <div class="container">
         <div class="jumbotron">
-            <div class="progress">
-                <div class="progress progress-striped active" style="height:44px;">
-                    <div id="progress-bar" class="bar" style="width:1%;"></div>
-                </div>
+            <div class="container" id="harvest-container">
+                <i class="fa fa-cog fa-spin fa-3x fa-fw" id="harvest-cog"></i>
+                    <span class="fa fa-stack-1x" id="harvest-cog-msg">Harvesting...</span>
             </div>
+            <div class="container" id="progress-container">
+            </div>
+
             <a href="{% url 'harvest_init' %}">Home</a>
         </div>
     </div>
 {% endblock %}
 {% block jquery %}
-    function updateProgress(percentage){
-        if(percentage > 100) percentage = 100;
-        $('#progress-bar').css('width', percentage+'%');
-        $('#progress-bar').html(percentage+'%');
-    }
-    var harvest_source = new EventSource({% url 'checktid' tid=htid %})
-    harvest_source.onmessage = function(event) {
-        if(event.data.harvest_done){
-            $('.progress-bar').css('width', 100+'%').attr('aria-valuenow', 100);
-        } else {
-            $('.progress-bar').css('width', 0+'%').attr('aria-valuenow', 0);
-        }
-    }
+   var poll_xhr;
+   var willstop = 0;
+   var startCombine = false;
+  (function(){
+    var poll = function(){
+      var json_dump = "{{ data }}";
+      var task_id = "{{task_id}}";
+      //console.log(task_id);
+      poll_xhr = $.ajax({
+        url:'check_task_id',
+        type: 'POST',
+        data: {
+            task_id: task_id,
+            csrfmiddlewaretoken: "{{csrf_token}}"
+        },
+        success: function(result) {
+            console.log("harvest_done = " + result.harvest_done);
+            console.log("startCombine = " + startCombine);
+            if (result.harvest_done > 0 && startCombine != true){
+                document.getElementById("harvest-cog-msg").textContent="Harvest complete! Combining contacts into local database...";
+                $('#harvest-cog').removeClass('fa-spin');
+                $('#progress-container:last').before('<div class="progress progress-striped active" style="height:44px;"><div id="progress-bar" class="progress-bar" style="width:1%;"></div></div>');
+                startCombine = true;
+            }
+            if (startCombine === true) {
+                if (result.process_percent == null || result.process_percent == undefined) {
+                    willstop = 1;
+                    jQuery('.progress-bar').css({'width': 100 + '%'});
+                    jQuery('.progress-bar').html(100 + '%');
+                   } else {
+                     jQuery('.progress-bar').css({'width': result.process_percent + '%'});
+                     jQuery('.progress-bar').html(result.process_percent + '%');
+                   };
+                }
+            }
+      });
+    };
+    var refreshIntervalId = setInterval(function() {
+      poll();
+      if(willstop == 1){
+        clearInterval(refreshIntervalId);
+      }
+    },500);
+  })();
+
 {% endblock %}

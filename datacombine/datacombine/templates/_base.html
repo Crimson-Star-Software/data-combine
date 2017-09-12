@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet"
+          integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
     <link rel="stylesheet" type="text/css" href="{% static 'css/yaya_style.css' %}">
     <style>
         {% block inpage_css %}{% endblock %}
@@ -42,13 +44,16 @@
       </div>
     </nav>
   </header>
-  {% if messages %}
-    <ul class="messages">
-      {% for message in messages %}
-        <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
+    <div class="container">
+        {% if messages %}
+
+            <ul class="messages">
+              {% for message in messages %}
+                <li {% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+              {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
     {% block content %}{% endblock %}
     <!-- jQuery CDN -->
     <script src="https://code.jquery.com/jquery-3.2.1.min.js"
@@ -69,6 +74,7 @@
             $(function() {
               if ($('#bootstrapCssTest').is(':visible')) {
                 $("head").prepend('<link rel="stylesheet" href="/static/css/bootstrap.min.css">');
+                $("head").prepend('<link rel="stylesheet" href="/static/css/font-awesome.min.css">');
               }
             });
             {% block jquery %}{% endblock %}

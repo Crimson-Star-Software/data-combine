@@ -4,7 +4,7 @@ from django.conf import settings
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'datacombine.settings')
-app = Celery('datacombine')
+app = Celery('datacombine', backend='amqp', broker="amqp://guest@localhost/")
 
 # Using a string here means the worker will not have to
 # pickle the object when using Windows.
