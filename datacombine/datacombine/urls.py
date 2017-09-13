@@ -21,9 +21,6 @@ from datacombine import views
 
 
 urlpatterns = [
-    #url(r'^harvest/combining/check_task_id/$',
-    #    login_required(views.CheckTaskProgressAJAX.as_view()),
-    #    name='check_task_id'),
     url(r'^dash/', login_required(views.DashView.as_view())),
     url(r'^harvest/combining/', login_required(views.CombineView.as_view()),
         name='combining'),

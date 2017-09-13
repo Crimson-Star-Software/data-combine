@@ -36,8 +36,8 @@
             csrfmiddlewaretoken: "{{csrf_token}}"
         },
         success: function(result) {
-            console.log("harvest_done = " + result.harvest_done);
-            console.log("startCombine = " + startCombine);
+            //console.log("harvest_done = " + result.harvest_done);
+            //console.log("startCombine = " + startCombine);
             if (result.harvest_done > 0 && startCombine != true){
                 document.getElementById("harvest-cog-msg").textContent="Harvest complete! Combining contacts into local database...";
                 $('#harvest-cog').removeClass('fa-spin');
@@ -45,6 +45,7 @@
                 startCombine = true;
             }
             if (startCombine === true) {
+                console.log(result.process_percent);
                 if (result.process_percent == null || result.process_percent == undefined) {
                     willstop = 1;
                     jQuery('.progress-bar').css({'width': 100 + '%'});

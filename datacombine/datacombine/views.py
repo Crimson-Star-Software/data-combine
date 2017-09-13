@@ -5,14 +5,10 @@ from django.contrib import messages
 from django.http import HttpResponse, HttpResponseRedirect
 
 import json
-import logging
-import time
 from celery.result import AsyncResult
 
 from datacombine import models
 from datacombine.forms import HarvestForm
-from datacombine.data_combine import DataCombine
-from datacombine import settings
 from datacombine import tasks
 
 class CombineView(View):
@@ -72,8 +68,8 @@ class HarvestInitializationView(FormView):
         return self.initial.copy()
 
     def form_valid(self, form):
-        success_message = "You did it! Yeaaaah!"
-        messages.success(self.request, success_message)
+        # success_message = "You did it! Yeaaaah!"
+        # messages.success(self.request, success_message)
         super().form_valid(form)
         return redirect('combining')
 
