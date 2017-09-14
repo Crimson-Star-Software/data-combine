@@ -16,7 +16,8 @@ from .models import (
     ConstantContactList,
     Note,
     Address,
-    UserStatusOnCCList
+    UserStatusOnCCList,
+    RequiringRemediation
 )
 from profilestats import profile
 
@@ -467,6 +468,11 @@ class DataCombine():
     def _save_ustat_object(self, ustat_object):
         ustat_object.save()
 
+    @transaction.atomic
+    def save_for_remediation(self, contact, json_entry):
+        rr = RequiringRemediation(contact_pk=contact, fields=json_entry)
+        rr.save()
+
     def _save_ustat_objects(self, contact, newContact, updating):
         for xcclist in contact.get('lists'):
             listobj = ConstantContactList.objects.filter(
@@ -506,6 +512,8 @@ class DataCombine():
         for c_i, contact in enumerate(self.contacts):
             try:
                 newContact = None
+                bad_m2m_entry = None
+                bad_phone_entry = None
                 updatingContact = False
                 contact_in_db = Contact.objects.filter(cc_id=contact.get("id"))
                 if contact_in_db:
@@ -538,8 +546,7 @@ class DataCombine():
                             contact.get(phfld), newContact, phfld
                         )
                     except FieldError as fe:
-                        self.bad_phone_nums.setdefault(newContact.cc_id, [])\
-                            .append({phfld:contact.get(phfld)})
+                        bad_phone_entry = {phfld:contact.get(phfld)}
                 for cls_obj, m2m in non_phone_or_cclist_m2m:
                     for m2mattrs in contact.get(m2m):
                         try:
@@ -547,11 +554,20 @@ class DataCombine():
                                 cls_obj, m2mattrs, newContact, m2m
                             )
                         except DataError:
-                            self.bad_m2m.setdefault(newContact.cc_id, []).\
-                                append({newContact.cc_id: m2mattrs})
+                            bad_m2m_entry = {newContact.cc_id: m2mattrs}
                 self._combine_notes_into_db(contact.get('notes'), newContact)
 
                 newContact.save()
+
+                if bad_m2m_entry:
+                    self.bad_m2m.setdefault(newContact.cc_id, [])\
+                        .append(bad_m2m_entry)
+                    self.save_for_remediation(newContact, bad_m2m_entry)
+
+                if bad_phone_entry:
+                    self.bad_phone_nums.setdefault(newContact.cc_id, [])\
+                        .append(bad_phone_entry)
+                    self.save_for_remediation(newContact, bad_phone_entry)
 
             except KeyboardInterrupt:
                 self.logger.info("Interrupt signal received...quitting.")
