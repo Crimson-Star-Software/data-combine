@@ -6,6 +6,7 @@ import logging
 import os
 
 import requests
+from cryptography.fernet import Fernet
 from django.core.exceptions import FieldError
 from django.db.utils import DataError
 from django.db import transaction, IntegrityError
@@ -261,7 +262,8 @@ class DataCombine():
     def dump_constantcontact_objects_from_json(
             self,
             jfname=os.path.join(HERE, "yaya_cc.json"),
-            override_json=True
+            override_json=True,
+            encrypt=True
     ):
         mode = 'w' if not override_json else 'w+'
         data = dict()
@@ -299,6 +301,7 @@ class DataCombine():
                 data['to_remidate']['bad_phone_nums'] = self.bad_phone_nums
             if hasattr(self, 'bad_m2m'):
                 data['to_remidate']['bad_m2m'] = self.bad_m2m
+            json.dump(data, jf)
             self.logger.debug("Objects dumped successfully")
 
     @classmethod
