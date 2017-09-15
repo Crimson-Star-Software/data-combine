@@ -1,3 +1,4 @@
+from django.contrib.postgres.fields import JSONField
 from django.db import models
 from django.core.exceptions import FieldError
 import re
@@ -238,3 +239,11 @@ class Contact(models.Model):
                 return ""
             if statstr.upper()[:2] == code:
                 return code
+
+
+class RequiringRemediation(models.Model):
+    contact_pk = models.ForeignKey(Contact)
+    fields = JSONField()
+
+    def __str__(self):
+        return f"{self.contact_pk.id}"
