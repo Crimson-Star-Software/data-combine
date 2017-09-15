@@ -27,6 +27,7 @@ from .utils import updt
 API_KEY = None
 AUTH_KEY = None
 
+# Optional load of secret_settings.py, if it is in package
 try:
     from .secret_settings import API_KEY, AUTH_KEY
 except ImportError:
@@ -45,18 +46,34 @@ class CombineException(BaseException):
 
 class DataCombine():
     def __init__(self, api_key=API_KEY, auth_key=AUTH_KEY,
-                 loglvl=logging.ERROR, logger=__name__,
+                 loglvl=logging.ERROR, logger_name=__name__,
                  logfile='dcombine.log'):
+        """Manages relationship between the local DB and ConstantContact API
+
+        Uses the optional file `secret_settings.py` to set the default API_KEY,
+        AUTH_KEY. Some methods require the postgres password, which can also be
+        in this file. The `secret_settings.py` is not maintained in the github
+        repo, for obvious security reasons, and must be in the same package
+        as `data_combine.py`.
+
+        :param api_key: (str) ConstantContact developer API key
+        :param auth_key: (str) ConstantContact account authorization key
+        :param loglvl: (int, default: logging.ERROR == 40) Log level severity
+            threshold
+        :param logger_name: (str) Name of the logger used
+        :param logfile: (str) Name of the logfile
+        """
         self.api_key = api_key
         self.token = auth_key
         # Check for log directory
         logdir = os.path.join(HERE, "logs")
         if not os.path.isdir(logdir):
             os.mkdir(logdir)
-        self._setup_logger(loglvl, logger, logfile)
+        self._setup_logger(loglvl, logger_name, logfile)
         self.headers = {'Authorization': f'Bearer {self.token}'}
         self.contacts = []
         self.cclists = []
+        self.highrise_contacts_json = dict()
         self.bad_phone_nums = dict()
         self.bad_m2m = dict()
 
@@ -78,6 +95,7 @@ class DataCombine():
         self.logger.addHandler(rtfh)
 
     def _report_cc_api_request_fail(self, r):
+        # Poop pants. Die.
         self.logger.error(
             f"Attempt to harvest encountered {r.status_code}: "
             f"{r.reason}: {r.content}"
@@ -86,30 +104,56 @@ class DataCombine():
 
     def _harvest_contact_page(self, params, api_url):
         url = f"{BASE_URI}{api_url}"
+
+        # Parameters should only be required on the initial GET request
         params = {
             'api_key': self.api_key
         } if api_url.__contains__('next') else params
+
         limit = params.get('limit')
         if limit:
             self._limit = limit
+
+        # GET them contacts
         r = requests.get(url, params=params, headers=self.headers)
         self.logger.debug(f"Getting '{self._limit}' contacts from {url}.")
 
+        # In case of UH-OH!
         if r.status_code >= HTTP_FAIL_THRESHOLD:
             return self._report_cc_api_request_fail(r)
 
+        # Pick them tasty contacts
         rjson = r.json()
         self.contacts.extend(rjson['results'])
+
+        # Get next_link or signal end
         if "next_link" in rjson['meta']['pagination']:
             next_link = rjson['meta']['pagination']['next_link']
             self.logger.debug(f"Found next link to harvest: '{next_link}'")
             return next_link
-        else:
+        else: # DONE!
             self.logger.debug("No more contacts to harvest.")
             return False
 
     def harvest_contacts(self, status='ALL', limit='500', modified_since=None,
                          api_uri='/v2/contacts', delete_contacts=True):
+        """Downloads contacts from ConstantContact account
+
+        :param status: (str): From one of UNCONFIRMED, ACTIVE, OPTOUT, REMOVED,
+            NON_SUBSCRIBER or for all of the above, ALL. See:
+            https://developer.constantcontact.com/docs/contacts-api/
+                contacts-index.html
+            for more informaton on these statuses.
+        :param limit: (str / int) Number of contacts to download per page.
+            Maximum value allowed by ConstantContact is 500.
+        :param modified_since: (datetime) Only download contacts modified after
+            this date and time
+        :param api_uri: (str) The API endpoint for ConstantContact contacts
+        :param delete_contacts: (bool) Delete any values currently in
+            `self.contacts`
+        :return: None, contacts are saved in json formatted list in
+            `self.contacts`
+        """
         if delete_contacts:
             self.contacts = []
         else:
@@ -117,6 +161,9 @@ class DataCombine():
                 "Contacts already exist and 'delete_contacts' parameter "
                 "is False"
             )
+
+        if limit and not type(limit) == str:
+            limit = str(limit)
 
         params = {
             'status': status,
@@ -137,7 +184,15 @@ class DataCombine():
 
     def harvest_lists(self, modified_since=None,
                       api_uri='/v2/lists', delete_cclists=True):
+        """Downloads lists from ConstantContact account
 
+        :param modified_since: (datetime) Only download lists modified after
+            this date and time
+        :param api_uri: (str) The API endpoint for ConstantContact lists
+        :param delete_cclists: (bool) Delete any values current in
+            `self.cclists`
+        :return: None, lists are saved in json formatted list in `self.cclists`
+        """
         if delete_cclists:
             self.cclists = []
         else:
@@ -150,22 +205,29 @@ class DataCombine():
             'api_key': self.api_key,
         }
         url = f"{BASE_URI}{api_uri}"
+
         if modified_since:
             if not self._check_for_iso_8601_format(modified_since):
                 raise TypeError(f"'{modified_since}' is not in iso8601 format")
             else:
                 params['modified_since'] = modified_since
+
+        # GET dem lists!
         r = requests.get(url, params=params, headers=self.headers)
         self.logger.debug(f"Making list request: {r}")
 
+        # In case of UH-OH!
         if r.status_code >= HTTP_FAIL_THRESHOLD:
             return self._report_cc_api_request_fail(r)
+
+        # GET'ten dem lists
         self.cclists = r.json()
         self.logger.debug(
             f"Successfully downloaded '{len(self.cclists)}' lists"
         )
 
     def _get_most_recent_datetime(self, cls_obj, param):
+        # Order in decreasing order so first is now last, and last is now first
         by_most_recent = cls_obj.objects.order_by('-'+param)
         if not by_most_recent:
             return None
@@ -176,14 +238,26 @@ class DataCombine():
             return None
 
     def update_local_db_caches(self):
+        """Finds the most recent lists and contacts, and downloads any new ones
+
+        Works primarly through the `harvest` functions, and will delete any
+        contacts or lists in their respective variables, and overwrite them
+        with new lists and contacts.
+
+        :return: None. Overwrites `self.contacts` and `self.cclists` with
+            new contacts and lists, respectively.
+        """
         most_recent_list_dt = self._get_most_recent_datetime(
             ConstantContactList, 'modified_date'
         )
         most_recent_contact_dt = self._get_most_recent_datetime(
             Contact, 'cc_modified_date'
         )
+
+        # Begin the harvesting!!!
         self.harvest_lists(modified_since=most_recent_list_dt)
         self.harvest_contacts(modified_since=most_recent_contact_dt)
+
         self.logger.info(
             "Harvested Constant Contact lists from "
             f"{most_recent_list_dt} and harvested Constant Contact"
@@ -191,14 +265,26 @@ class DataCombine():
         )
 
     def combine_and_update_new_entries(self):
-        # Get all updated lists and contacts
+        """Updates local db caches and combines them into the db
+
+        Note: "db caches" are defined as `self.cclists` and `self.contacts`
+
+        :return: None
+        """
+        # Get all updated lists and contacts / HARVEST
         self.update_local_db_caches()
 
+        # Update databases / COMBINE
         for cclist in self.cclists:
             self.combine_cclist_json_into_db(cclist)
         self.combine_contacts_into_db()
 
     def read_from_highrise_contact_stash(self, jfname="yaya.json"):
+        """Reads HighRise contacts that have been converted to json
+
+        :param jfname: (str) Filename of HighRise stash
+        :return: Populates `self.highrise_contacts_json` with HighRise contacts
+        """
         with open(jfname, 'r') as f:
             self.highrise_contacts_json = json.loads(f.read())
 
@@ -208,6 +294,15 @@ class DataCombine():
             override_contacts=True,
             override_lists=True
     ):
+        """Read previously collected ConstantContact objects from JSON file
+
+        :param jfname: (str) Path to json file with ConstantContact data
+        :param override_contacts: (bool) Replace `self.contact` with contacts
+            in json file
+        :param override_lists: (bool) Replace `self.cclist` with lists from
+            json file
+        :return: None
+        """
         with open(jfname, 'r') as jf:
             data = json.loads(jf.read())
             if hasattr(self, 'contacts'):
@@ -238,6 +333,7 @@ class DataCombine():
             (add_contacts, 'contacts'),
             (add_lists, 'cclists'),
         ]
+
         # Check if record exists in contacts and cclists
         # If so, don't re-add it
         for dumps, field in fields:
@@ -252,7 +348,8 @@ class DataCombine():
     def _update_ccobj(self, field, new_ccobj):
         obj_ids = [obj.get('id') for obj in getattr(self, field)]
         if hasattr(self, field):
-            ccobj = getattr(self, field)
+            # Grab that field in the ccobj
+            ccobj = getattr(self, field) #<- updates (adds to) this field
             for obj in new_ccobj:
                 if obj.get('id') in obj_ids:
                     continue
@@ -264,10 +361,16 @@ class DataCombine():
             jfname=os.path.join(HERE, "yaya_cc.json"),
             override_json=True
     ):
+        """Dump ConstantContact objects into a JSON formatted file
+
+        :param jfname: (str) Path to JSON file
+        :param override_json: (bool) If file exists at `jfname`, delete?
+        :return: None, but there should be data in the file at `jfname`
+        """
         mode = 'w' if not override_json else 'w+'
         data = dict()
         with open(jfname, mode) as jf:
-            if mode == 'w+':
+            if mode == 'w+': # Read and write
                 try:
                     self.logger.debug("Preparing to dump objects...")
                     data = json.load(jf)
@@ -304,11 +407,22 @@ class DataCombine():
 
     @classmethod
     def get_init_values_for_model(_, cls):
+        """Returns all fields that are not relations or auto-incremented id's
+
+        :param cls: The class model to get the fields of
+        :return: (`list` of `str`) A list of the names of each non-relation and
+            non-auto-incremented `django.db.models.fields`
+        """
         return [f.name for f in cls._meta.get_fields() if not f.is_relation
                 and f.name != 'id']
 
     @staticmethod
     def convert_choice_to_field(choice):
+        """Makes choice a field by changing the text
+
+        :param choice: Entry to make a field
+        :return: (str) `choice` made uppercase and replacing spaces with '_'
+        """
         return choice.upper().replace(' ', '_')
 
     @classmethod
@@ -319,10 +433,12 @@ class DataCombine():
                 continue
             elif fld.name.startswith("cc_"):
                 if fld.name == "cc_id":
+                    # If object already exists in DB, return None
                     if cls.objects.filter(cc_id=attrs[fld.name[3:]]):
                         return
                 kwargs[fld.name] = attrs[fld.name[3:]]
             elif hasattr(fld, 'choices') and fld.choices:
+                # Map uppercase field names to DB 2-letter codes
                 chmap = {
                     DataCombine.convert_choice_to_field(ch[1]): ch[0]\
                     for ch in fld.choices
@@ -336,10 +452,16 @@ class DataCombine():
                     kwargs[fld.name] = attrs[fld.name]
                 except KeyError:
                     kwargs[fld.name] = None
+        # Return a new model object
         return cls(**kwargs)
 
     @transaction.atomic
     def combine_cclist_json_into_db(self, cclist_json):
+        """Creates a `model.ConstantContactList` and saves it to the local DB
+
+        :param cclist_json: (dict) JSON with ConstantContact list information
+        :return: None
+        """
         md = cclist_json.get('modified_date')
         cd = cclist_json.get('created_date')
         if not self._check_for_iso_8601_format(md):
@@ -377,6 +499,7 @@ class DataCombine():
         try:
             cf = DataCombine.get_init_values_for_model(Contact)
             fields = dict()
+            # Set up fields for Contact
             for x in cf:
                 try:
                     if not x.startswith('cc_'):
@@ -389,6 +512,7 @@ class DataCombine():
                         fields[x] = ""
                     else:
                         raise ke
+            # Initialize new Contact object
             newContact = Contact(**fields)
             newContact.status = Contact.convert_status_str_to_code(
                 newContact.status
@@ -406,6 +530,16 @@ class DataCombine():
 
     @transaction.atomic
     def combine_phone_number_into_db(self, phone_num, newContact, phfld):
+        """Initialize a `models.Phone` from a sting and save to local DB
+
+        :param phone_num: (str) A sting representing a phone number
+        :param newContact: (`models.Contact`) The new Contact to add the phone
+            object to.
+        :param phfld: (`django.db.models.fields.related.ManyToManyField`) The
+            field (home_phone, cell_phone, work_phone, or fax) that the
+            `phone_num` string will be added to in `newContact`
+        :return: None, but a new Phone object should be added to the local DB
+        """
         if not phone_num:
             return
         ph = Phone()
@@ -470,6 +604,12 @@ class DataCombine():
 
     @transaction.atomic
     def save_for_remediation(self, contact, json_entry):
+        """Make a new `models.RequiringRemediation` object and save to local DB
+
+        :param contact: (`models.Contact`) Entry with bad field
+        :param json_entry: (dict) Fields that are incorrect matched to bad data
+        :return: None, local DB is updated
+        """
         rr = RequiringRemediation(contact_pk=contact, fields=json_entry)
         rr.save()
 
@@ -498,12 +638,32 @@ class DataCombine():
 
     #@profile(print_stats=10, dump_stats=True, profile_filename="p3.out")
     def combine_contacts_into_db(self, update_web_interface=False):
+        """Adds all contacts and lists available to `self` to local DB
+
+        This is the core of the "combining" process. After lists and contacts
+        have been "harvested" (ie. downloaded or read from JSON file) from
+        ConstantContact and added to `self.cclists` and `self.contacts`,
+        respectively; this function will make the relevant Django ORM models
+        and then save each to the local DB
+
+        :param update_web_interface: (str) If true, this function will generate
+            a dictonary object with 'processed' and 'total' keys, matched to
+            the number of Contact iterations completed and the number of
+            Contact objects yet to be added (there usually are far fewer lists
+            than contacts, so these aren't included)
+
+            If not true, calls `utils.updt` to fulfill the same purpose as
+            updating the web interface, but to the console instead
+        :return: None, but should update local DB
+        """
         begin_time = datetime.datetime.now()
         processed = 0
+
         if not hasattr(self, 'contacts'):
             raise AttributeError("No contacts found")
         elif not hasattr(self, 'cclists'):
             raise AttributeError("No constant contact list found")
+
         # These are all the UserStatusOnCCList objects which
         # Need to be saved when the user has been entered into the database
         ustat_objects = []
@@ -515,6 +675,8 @@ class DataCombine():
                 bad_m2m_entry = None
                 bad_phone_entry = None
                 updatingContact = False
+
+                # Check if Contact is already in DB, and act appropriately
                 contact_in_db = Contact.objects.filter(cc_id=contact.get("id"))
                 if contact_in_db:
                     contact_in_db = contact_in_db.first()
@@ -532,8 +694,11 @@ class DataCombine():
                     (EmailAddress, "email_addresses"),
                 ]
 
+                # Setup and save connections from this contact to various lists
+                # (ie. `models.UserStatusOnCCList` objects)
                 self._save_ustat_objects(contact, newContact, updatingContact)
 
+                # Setup and combine phone numbers for contact
                 phone_fields = [
                     'home_phone',
                     'work_phone',
@@ -547,6 +712,8 @@ class DataCombine():
                         )
                     except FieldError as fe:
                         bad_phone_entry = {phfld:contact.get(phfld)}
+
+                # Setup and combine many to many fields for contact
                 for cls_obj, m2m in non_phone_or_cclist_m2m:
                     for m2mattrs in contact.get(m2m):
                         try:
@@ -555,10 +722,15 @@ class DataCombine():
                             )
                         except DataError:
                             bad_m2m_entry = {newContact.cc_id: m2mattrs}
+
+                # Set up and save notes about contact
                 self._combine_notes_into_db(contact.get('notes'), newContact)
 
+                # Save new contact to database
                 newContact.save()
 
+                # Setup and save any entries which will need to be remediated
+                # by a human operator
                 if bad_m2m_entry:
                     self.bad_m2m.setdefault(newContact.cc_id, [])\
                         .append(bad_m2m_entry)
@@ -587,14 +759,16 @@ class DataCombine():
                     f"Field error on contact #{c_i} {contact} for {phfld}"
                     "...skipping..."
                 )
-            except:
+            except: # Keep calm, fuck this, and carry on
                 self.logger.exception(f"Exception on contact #{c_i}...skipping...")
-            finally:
+            finally: # Update dem progress trackers
                 if update_web_interface:
                     yield {'processed': processed, 'total': len(self.contacts)}
                     processed += 1
                 else:
                     processed = self._continue_combine(processed)
+
+        # Note time taken to complete, for log
         end_time = datetime.datetime.now()
         total_time = (end_time - begin_time).total_seconds()
         if update_web_interface:
