@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.11/ref/settings/
 """
 
 import os
+import logging
 from . import secret_settings
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -141,3 +142,10 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'America/New_York'
+
+# Contact Encryption
+KEY_TO_FILE = 'to_file'
+KEY_TO_LOG = 'to_log'
+ENCRYPT_OPTS = [KEY_TO_FILE, KEY_TO_LOG]
+LOG_LVL_FOR_KEY = logging.INFO
+FILE_FOR_KEY = os.path.join(BASE_DIR, 'yaya_cc.json.enc')
