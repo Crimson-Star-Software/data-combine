@@ -1,3 +1,4 @@
+from django.contrib.postgres.fields import JSONField
 from django.db import models
 from django.core.exceptions import FieldError
 import re
@@ -149,8 +150,9 @@ class Address(models.Model):
     sub_postal_code = models.CharField(max_length=20, null=True)
 
     def __str__(self):
+        lines = [self.line1, self.line2, self.line3]
         return "{0} {1}, {2}, {3}".format(
-            ", ".join(self.line1, self.line2, self.line3),
+            ", ".join([line for line in lines if line]),
             self.city,
             self.state,
             self.country_code
@@ -249,3 +251,11 @@ class Contact(models.Model):
                 return ""
             if statstr.upper()[:2] == code:
                 return code
+
+
+class RequiringRemediation(models.Model):
+    contact_pk = models.ForeignKey(Contact)
+    fields = JSONField()
+
+    def __str__(self):
+        return f"{self.contact_pk.id}"
