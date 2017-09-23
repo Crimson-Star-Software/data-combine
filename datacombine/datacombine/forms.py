@@ -1,4 +1,7 @@
 from django import forms
+from django.forms.fields import CharField, TextInput
+from django.forms import ModelForm, inlineformset_factory
+from datacombine import models
 
 
 class HarvestForm(forms.Form):
@@ -37,3 +40,53 @@ class HarvestForm(forms.Form):
                     "There needs to be either a json file "
                     "or Constant Contact API/postgres credentials."
                 )
+
+
+class AddressForm(ModelForm):
+    class Meta:
+        model = models.Address
+        exclude = ["cc_id"]
+        label = {
+            'line1': 'Address Line 1',
+            'line2': 'Address Line 2',
+            'line3': 'Address Line 3'
+        }
+        fields_required = []
+
+
+class EmailAddressForm(ModelForm):
+    class Meta:
+        model = models.EmailAddress
+        exclude = ["cc_id"]
+        fields_required = ["email_address"]
+
+
+class CreateContactForm(ModelForm):
+    cell_field = CharField(label="Cell Phone")
+    home_field = CharField(label="Home Phone")
+    work_field = CharField(label="Work Phone")
+    fax_field = CharField(label="Fax")
+    note = TextInput()
+
+    class Meta:
+        model = models.Contact
+        exclude = [
+            "created_date",
+            "cc_id",
+            "cc_modified_date",
+            "cell_phone",
+            "home_phone",
+            "work_phone",
+            "fax",
+            "addresses",
+            "email_addresses"
+        ]
+        fields_required = ["first_name"]
+
+
+# ContactAddressFormSet = inlineformset_factory(
+#     models.Contact,
+#     models.Contact.addresses.through,
+#     AddressForm,
+#     extra=1
+# )

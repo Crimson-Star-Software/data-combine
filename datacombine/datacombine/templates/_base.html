@@ -35,7 +35,8 @@
         </div>
         <div id="navLinks" class="navbar-collapse collapse">
           <ul class="nav navbar-nav navbar-right">
-            <li><a id="about-btn" class="btn shadowbtn" href="#about">About</a></li>
+            <li><a id="about-btn" class="btn" href="#about">About</a></li>
+            <li><a id="manage-contact-btn" class="btn" href="{% url 'manage' %}">Manage Contacts</a></li>
             {% if user.is_authenticated %}
               <li><a id="logout-btn"  class="btn" href="{% url 'logout' %}">Logout</a></li>
             {% endif %}
@@ -65,6 +66,7 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
             integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
             crossorigin="anonymous"></script>
+    <script src="{% static 'js/jquery.formset.js' %}"></script>
     <!-- Bootstrap JS local fallback -->
     <script>if(typeof($.fn.modal) === 'undefined') {document.write('<script src="/static/js/bootstrap.min.js"><\/script>')}</script>
   <!-- Bootstrap CSS local fallback -->

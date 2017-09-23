@@ -214,21 +214,21 @@ class Note(models.Model):
 
 
 class Contact(models.Model):
+    first_name = models.CharField(max_length=50, null=True)
+    middle_name = models.CharField(max_length=50, null=True)
+    last_name = models.CharField(max_length=50, null=True)
     cell_phone = models.ManyToManyField(Phone, related_name='+')
     home_phone = models.ManyToManyField(Phone, related_name='+')
     work_phone = models.ManyToManyField(Phone, related_name='+')
+    fax = models.ManyToManyField(Phone, related_name='+')
     confirmed = models.NullBooleanField(null=True)
     addresses = models.ManyToManyField(Address)
     company_name = models.CharField(max_length=100, null=True)
     created_date = models.DateTimeField(auto_now_add=True)
-    email_addresses = models.ManyToManyField(EmailAddress)
-    fax = models.ManyToManyField(Phone, related_name='+')
-    first_name = models.CharField(max_length=50, null=True)
-    middle_name = models.CharField(max_length=50, null=True)
-    last_name = models.CharField(max_length=50, null=True)
     cc_id = models.IntegerField(unique=True, null=True)
     cc_lists = models.ManyToManyField(ConstantContactList,
                                       through=UserStatusOnCCList)
+    email_addresses = models.ManyToManyField(EmailAddress)
     cc_modified_date = models.DateTimeField(auto_now_add=True)
     prefix_name = models.CharField(max_length=10, null=True)
     job_title = models.CharField(max_length=50, null=True)

@@ -1,14 +1,15 @@
-from django.views.generic import View
+from django.views.generic import View, CreateView
 from django.shortcuts import render, redirect, reverse
-from django.views.generic.edit import FormView
 from django.contrib import messages
+from django.db import transaction
 from django.http import HttpResponse, HttpResponseRedirect
 
 import json
 from celery.result import AsyncResult
 
+
 from datacombine import models
-from datacombine.forms import HarvestForm
+from datacombine import forms
 from datacombine import tasks
 
 class CombineView(View):
@@ -45,8 +46,8 @@ class CombineView(View):
         return HttpResponse(json_data, content_type='application/json')
 
 
-class HarvestInitializationView(FormView):
-    form_class = HarvestForm
+class HarvestInitializationView(CreateView):
+    form_class = forms.HarvestForm
     success_url = "/dash/"
     template_name = "harvest.html"
 
@@ -73,6 +74,25 @@ class HarvestInitializationView(FormView):
         super().form_valid(form)
         return redirect('combining')
 
+
+class CreateNewContactView(View):
+    def get(self, request):
+        addresses_form = forms.AddressForm
+        email_form = forms.EmailAddressForm
+        contact_form = forms.CreateContactForm
+
+        context = {
+            'addresses_form': addresses_form,
+            'email_form': email_form,
+            'contact_form': contact_form
+        }
+
+        return render(request, "add_new_contact.html", context)
+
+
+class ManageView(View):
+    def get(self, request):
+        return render(request, 'manage.html')
 
 class DashView(View):
     def get(self, request):

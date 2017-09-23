@@ -1,0 +1,58 @@
+{% extends '_base.html' %}
+{% load static %}
+{% load humanize %}
+{% block title %}Data Combine: New Contact{% endblock %}
+
+{% block bodyspecs %}background="{% static 'pictures/yaya_orl.jpeg' %}"{% endblock %}
+{% block content %}
+    <div class="container">
+        <div class="jumbotron">
+            <div class="center">
+                <h1>Add a new Contact</h1>
+                <p>(Each contact MUST have an email address and a
+                    first_name/nickname/monicker)
+                </p>
+            </div>
+            <form action="" method="post">{% csrf_token %}
+                <div class="row">
+                    <div class="col-xs-6">
+                        <div class="panel panel-primary">
+                            <div class="panel-heading">
+                                <strong>Contact</strong>
+                            </div>
+                            <div class="panel-body panel-primary">
+                                {{ contact_form.as_p }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xs-6">
+                        <div class="panel panel-primary">
+                            <div class="panel-heading">
+                                <strong>Email</strong>
+                            </div>
+                            <div class="panel-body panel-primary">
+                                {{ email_form.as_p }}
+                            </div>
+                        </div>
+                        <div class="panel panel-primary">
+                            <div class="panel-heading">
+                                <strong>Address</strong>
+                            </div>
+                            <div class="panel-body panel-primary">
+                                {{ addresses_form.as_p }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        <button class="btn btn-primary btn-lg" type="submit" role="button">Submit</button>
+        </form>
+    </div>
+{% endblock %}
+
+{% block jquery %}
+    /*$('.formset_row').formset({
+        addText: 'add address',
+        deleteText: 'remove',
+        prefix: 'address_set'
+    });*/
+{% endblock %}

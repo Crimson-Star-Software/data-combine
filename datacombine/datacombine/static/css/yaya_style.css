@@ -113,3 +113,8 @@ body{
 .navbar-inverse .btn-link:focus {
   color: #ffffff;
 }
+
+/* MOAR stuff */
+.check-margin10 {
+    margin-left: 10px;
+}
