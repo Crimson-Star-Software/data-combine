@@ -13,10 +13,27 @@
                                         {% else %}
                                             {{ user.get_short_name }}!
                                         {% endif %}</h1>
-                <p class="lead">Let's Data</p>
+                <p class="lead">Dashboard</p>
             <hr class="my-4">
             <div class="container">
-                <p>STUFF!</p>
+                <div class="list-group">
+                    <a href="#" class="list-group-item">
+                        <h4 class="list-group-item-heading">Contacts</h4>
+                        <p class="list-group-item-text">There are currently {{ numContacts | intcomma }} Contacts in the local
+                            database. The newest Contact is from {{ latestContact | naturaltime}}.</p>
+                    </a>
+                    <a href="#" class="list-group-item">
+                        <h4 class="list-group-item-heading">Lists</h4>
+                        <p class="list-group-item-text">There are {{ numListsAC | intcomma }} <strong>active</strong> lists, and
+                        there are {{numListsHI | intcomma }} <strong>hidden</strong> lists in the local
+                        database.</p>
+                    </a>
+                    <a href="#" class="list-group-item">
+                        <h4 class="list-group-item-heading">Remediation</h4>
+                        <p class="list-group-item-text">There are currently <span  style="color: red;">{{ toRemidiate | intcomma}} objects</span>
+                            in the local database that require remediation.</p>
+                    </a>
+                </div>
             </div>
         </div>
     </div>

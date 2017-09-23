@@ -92,15 +92,32 @@ class CreateNewContactView(View):
 
 class ManageView(View):
     def get(self, request):
+
         return render(request, 'manage.html')
+
 
 class DashView(View):
     def get(self, request):
         if models.Contact.objects.count() == 0:
             return redirect('/harvest/')
         else:
+            toRemidiate = models.RequiringRemediation.objects.count()
+            latestContact = models.Contact.objects. \
+                order_by('created_date').last().created_date
+            numContacts = models.Contact.objects.count()
+            numListsAC = models.ConstantContactList.objects. \
+                filter(status="AC").count()
+            numListsHI = models.ConstantContactList.objects. \
+                filter(status="HI").count()
+            context = {
+                'toRemidiate': toRemidiate,
+                'numContacts': numContacts,
+                "numListsAC": numListsAC,
+                "numListsHI": numListsHI,
+                "latestContact": latestContact
+            }
             return render(
                 request,
                 'dash.html',
-                {}
+                context
             )
