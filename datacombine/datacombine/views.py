@@ -92,7 +92,6 @@ class CreateNewContactView(View):
 
 class ManageView(View):
     def get(self, request):
-
         return render(request, 'manage.html')
 
 

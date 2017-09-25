@@ -9,14 +9,19 @@
         <div class="jumbotron">
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title">Panel title</h3>
+                    <h3 class="panel-title">CRRUD Boxes</h3>
                 </div>
                 <div class="panel-body">
-                    Panel content
+                    CReate, Remediate, Update and Delete
                 </div>
                 <ul class="list-group">
-                    <li class="list-group-item">Add Contacts</li>
-                    <li class="list-group-item">Add Lists</li>
+                    <a href="{% url 'add_contacts' %}"><li class="list-group-item list-group-item-success">Create Contacts</li></a>
+                    <li class="list-group-item list-group-item-success">Create Lists</li>
+                    <li class="list-group-item list-group-item-info">Remediate (ie. FIX STUFF!)</li>
+                    <li class="list-group-item list-group-item-warning">Update Contacts</li>
+                    <li class="list-group-item list-group-item-warning">Update Lists</li>
+                    <li class="list-group-item list-group-item-danger">Delete Contacts</li>
+                    <li class="list-group-item list-group-item-danger">Delete Lists</li>
                 </ul>
             </div>
         </div>

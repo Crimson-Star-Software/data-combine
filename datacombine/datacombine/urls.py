@@ -21,9 +21,10 @@ from datacombine import views
 
 
 urlpatterns = [
+    url(r'^manage/add_new_contacts/', login_required(views.CreateNewContactView.as_view()),
+        name='add_contacts'),
     url(r'^manage/', login_required(views.ManageView.as_view()),
-        name='manage'),
-    url(r'^manage/add_new_contacts/', login_required(views.CreateNewContactView.as_view())),
+        name='manage_root'),
     url(r'^dash/', login_required(views.DashView.as_view())),
     url(r'^harvest/combining/', login_required(views.CombineView.as_view()),
         name='combining'),

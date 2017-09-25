@@ -221,7 +221,7 @@ class Contact(models.Model):
     home_phone = models.ManyToManyField(Phone, related_name='+')
     work_phone = models.ManyToManyField(Phone, related_name='+')
     fax = models.ManyToManyField(Phone, related_name='+')
-    confirmed = models.NullBooleanField(null=True)
+    confirmed = models.NullBooleanField(null=True, default=True)
     addresses = models.ManyToManyField(Address)
     company_name = models.CharField(max_length=100, null=True)
     created_date = models.DateTimeField(auto_now_add=True)

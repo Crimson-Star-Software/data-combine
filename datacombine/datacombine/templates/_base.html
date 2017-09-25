@@ -36,7 +36,7 @@
         <div id="navLinks" class="navbar-collapse collapse">
           <ul class="nav navbar-nav navbar-right">
             <li><a id="about-btn" class="btn" href="#about">About</a></li>
-            <li><a id="manage-contact-btn" class="btn" href="{% url 'manage' %}">Manage Contacts</a></li>
+            <li><a id="manage-contact-btn" class="btn" href="{% url 'manage_root' %}">Manage Contacts</a></li>
             {% if user.is_authenticated %}
               <li><a id="logout-btn"  class="btn" href="{% url 'logout' %}">Logout</a></li>
             {% endif %}
