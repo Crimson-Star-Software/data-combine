@@ -149,3 +149,6 @@ KEY_TO_LOG = 'to_log'
 ENCRYPT_OPTS = [KEY_TO_FILE, KEY_TO_LOG]
 LOG_LVL_FOR_KEY = logging.INFO
 FILE_FOR_KEY = os.path.join(BASE_DIR, 'yaya_cc.json.enc')
+
+# Specific Group settings
+PREF_ORGANIZATION_PREFIX = 'YAYA Florida'
